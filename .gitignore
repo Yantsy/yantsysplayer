@@ -1,0 +1,6 @@
+build/
+.cache/
+videos/
+.json/
+.excalidraw/
+.vscode/
