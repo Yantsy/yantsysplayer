@@ -184,8 +184,7 @@ private:
                             mediaInfo.channels, convertedSamples,
                             myResampler.fmtNameTrans2(mediaInfo.sampleFmt), 1);
                         outBytes              = convertedBytes;
-                    }
-                    if (pptrSet.amyFrm.get()->data[1] == nullptr) {
+                    } else {
                         chunk.pcm.insert(
                             chunk.pcm.end(), chunk.pcm.data(), chunk.pcm.data() + outBytes);
                     }

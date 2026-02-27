@@ -58,7 +58,7 @@ struct MediaInfo {
     int asIndex;
     std::string adecoderName;
     double atimeBase;
-    int samples { 512 };
+    int samples { 1024 };
     int silence;
     int splRate;
     int splDepth;
