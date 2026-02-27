@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.20)
+cmake_minimum_required(VERSION 3.28)
 
 project(test)
 
@@ -10,7 +10,7 @@ set(CMAKE_AUTOMOC ON)
 # Qt资源系统
 set(CMAKE_AUTORCC ON)
 
-set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD 23)
 
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
@@ -39,8 +39,6 @@ set(QT_QML_GENERATE_QMLS_INIT ON)
 
 qt_add_executable(${PROJECT_NAME}
 ../src/test.cc
-../src/demuxer.h
-../src/decoder.h
 ../src/glwidget.h
 ../src/glwidget.cc
 ../src/audiowidget.h
