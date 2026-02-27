@@ -203,19 +203,10 @@ private:
             std::cerr << "SDL_AudioDevice Initialization Failed" << std::flush;
             return;
         }
-        Uint32 low  = mediaInfo.splRate * mediaInfo.channels * mediaInfo.splDepth * 0.1;
-        Uint32 high = low * 4;
         while (!pqueue.bufferredPcm.empty()) {
-            Uint32 queued = SDL_GetQueuedAudioSize(pdevice);
-            if (queued < low) {
-                auto& outFrame = pqueue.bufferredPcm.front();
-                SDL_QueueAudio(pdevice, outFrame.pcm.data(), (Uint32)outFrame.pcm.size());
-                pqueue.bufferredPcm.pop();
-            } else if (queued > high) {
-                SDL_Delay(10);
-            } else {
-                SDL_Delay(1);
-            }
+            auto& outFrame = pqueue.bufferredPcm.front();
+            SDL_QueueAudio(pdevice, outFrame.pcm.data(), (Uint32)outFrame.pcm.size());
+            pqueue.bufferredPcm.pop();
         }
         while (SDL_GetQueuedAudioSize(pdevice) > 0)
             SDL_Delay(10);
