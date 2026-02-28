@@ -5,9 +5,9 @@
 #include <queue>
 #include <thread>
 
-#include "audiowidget.h"
-#include "glwidget.h"
+#include "audioWidget_sdl2.h"
 #include "public.h"
+#include "videoWidget_gl.h"
 // resource management
 
 struct AudioChunk {

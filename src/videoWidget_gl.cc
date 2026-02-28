@@ -1,6 +1,5 @@
-#include "glwidget.h"
+#include "videoWidget_gl.h"
 #include <iostream>
-#include <span>
 #include <thread>
 
 MyGLWidget::MyGLWidget(QWidget* parent) noexcept

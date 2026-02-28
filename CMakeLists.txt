@@ -15,11 +15,7 @@ set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-find_package(Qt6 COMPONENTS Quick Widgets Core Svg SvgWidgets Multimedia MultimediaWidgets OpenGL OpenGLWidgets REQUIRED)
-
-find_package(Eigen3 REQUIRED)
-
-find_package(OpenCV REQUIRED)
+find_package(Qt6 COMPONENTS Widgets Core  OpenGL OpenGLWidgets REQUIRED)
 
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(SDL2 REQUIRED sdl2)
@@ -39,9 +35,9 @@ set(QT_QML_GENERATE_QMLS_INIT ON)
 
 qt_add_executable(${PROJECT_NAME}
 ../src/test.cc
-../src/glwidget.h
-../src/glwidget.cc
-../src/audiowidget.h
+../src/videoWidget_gl.h
+../src/videoWidget_gl.cc
+../src/audioWidget_sdl2.h
 ../src/resampler.h
 ../src/public.h
 )
@@ -50,18 +46,9 @@ qt_add_resources({${PROJECT_NAME} ../resources.qrc})
 target_sources(${PROJECT_NAME} PRIVATE ../resources.qrc)
 
     
-target_link_libraries(${PROJECT_NAME}  PUBLIC Qt6::Core Qt6::Widgets Qt6::Quick Qt6::Svg Qt6::SvgWidgets Qt6::OpenGL Qt6::OpenGLWidgets OpenGL::GL OpenGL::GLU)
+target_link_libraries(${PROJECT_NAME}  PUBLIC Qt6::Core Qt6::Widgets  Qt6::OpenGL Qt6::OpenGLWidgets OpenGL::GL OpenGL::GLU)
 
-
-target_link_libraries(${PROJECT_NAME}  PRIVATE Qt6::Multimedia Qt6::MultimediaWidgets)
 target_link_libraries(${PROJECT_NAME} PUBLIC avformat avcodec avutil swscale swresample)
-
-
-target_link_libraries(${PROJECT_NAME} PUBLIC Eigen3::Eigen)
-
-target_link_libraries(${PROJECT_NAME} PUBLIC ${OpenCV_LIBS})
-
-
 
 target_link_libraries(${PROJECT_NAME} PRIVATE
     ${SDL2_LIBRARIES}
