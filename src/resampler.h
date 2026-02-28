@@ -39,7 +39,7 @@ public:
         return pPackedData;
     }
 
-    auto fmtNameTrans(const AVSampleFormat& psprFmt) const noexcept {
+    auto toSDLAudioFmt(const AVSampleFormat& psprFmt) const noexcept {
         switch (psprFmt) {
         case AV_SAMPLE_FMT_U8: {
             return AUDIO_U8;
@@ -65,7 +65,7 @@ public:
         }
     }
 
-    auto fmtNameTrans2(const AVSampleFormat& psprFmt) const noexcept {
+    auto toPackedFmt(const AVSampleFormat& psprFmt) const noexcept {
         switch (psprFmt) {
         case AV_SAMPLE_FMT_U8P: {
             return AV_SAMPLE_FMT_U8;

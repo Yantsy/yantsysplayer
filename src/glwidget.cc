@@ -282,7 +282,7 @@ void MyGLWidget::paintGL() {
     m_textureV->bind(2);
     m_shaderProgram0->setUniformValue("textureV", 2);
     m_shaderProgram0->setUniformValue("is10bit", isTenbit);
-    QMatrix4x4 transform = transformMatrix2(width(), height(), imageWidth, imageHeight);
+    QMatrix4x4 transform = transformMatrix(width(), height(), imageWidth, imageHeight);
     m_shaderProgram0->setUniformValue("transform", transform);
     glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
 
@@ -294,83 +294,7 @@ void MyGLWidget::paintGL() {
     m_shaderProgram0->release();
 }
 
-// 图像原本被完全填充在窗口中，通过mirror进行翻转，通过scale缩放回原来的比例，再通过正交投影消除窗口尺寸的影响(其实也相当于scale，因为vertex
-// shader已经把图像压缩到[-1,1]^3空间内了)；
-// 此时画面可以尽量完全填充在窗口中，不会出现黑边,但是部分图片可能会被裁剪
 QMatrix4x4 MyGLWidget::transformMatrix(
-    const float ww, const float wh, const float iw, const float ih) {
-    if (ih <= 0.0f || wh <= 0.0f) {
-        return QMatrix4x4(); // 异常情况返回单位矩阵
-    }
-    float imageRatio = iw / ih;
-    // float imageVerseRatio = 1.0f / imageRatio;
-    float windowRatio      = ww / wh;
-    float windowVerseRatio = 1.0f / windowRatio;
-    const float pi         = std::acos(-1);
-    const float a          = std::cos(pi);
-    const float b          = std::sin(pi);
-    // const float windowAspectRatio =
-    // static_cast<float>(width()) / static_cast<float>(height());
-    // const float windowVerseRatio = 1.0f / windowAspectRatio;
-    QMatrix4x4 rotation = { a, -b, 0, 0, b, a, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1 };
-    QMatrix4x4 mirror   = { 1, 0, 0, 0, 0, -1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1 };
-    QMatrix4x4 imgScale = imageScaleMatrix(imageWidth, imageHeight);
-    QMatrix4x4 winScale = windowScaleMatrix(width(), height());
-    QMatrix4x4 transformMatrix;
-    QMatrix4x4 betweenMatrix = winScale * imgScale * mirror;
-    QMatrix4x4 adjustMatrix; // adjustMatrix要尽量留在有等号的地方，以包容各种情况
-    if (imageRatio > 1.0f) {
-        if (windowRatio > 1.0f) {
-            transformMatrix = betweenMatrix;
-
-        } else {
-            adjustMatrix = { windowRatio, 0, 0, 0, 0, windowRatio, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1 };
-
-            transformMatrix = adjustMatrix * betweenMatrix;
-        }
-    } else {
-        if (windowRatio >= 1.0f) {
-            adjustMatrix = { windowVerseRatio, 0, 0, 0, 0, windowVerseRatio, 0, 0, 0, 0, 1, 0, 0, 0,
-                0, 1 };
-
-            transformMatrix = adjustMatrix * betweenMatrix;
-        } else {
-            transformMatrix = betweenMatrix;
-        }
-    }
-    return transformMatrix;
-}
-
-QMatrix4x4 MyGLWidget::imageScaleMatrix(const float imgWidth, const float imgHeight) {
-    QMatrix4x4 scaleMatrix;
-    const float imgAspectRatio = imgWidth / imgHeight;
-    const float imgVerseRatio  = 1.0f / imgAspectRatio;
-    if (imgAspectRatio >= 1.0f) {
-        scaleMatrix = { 1, 0, 0, 0, 0, imgVerseRatio, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1 };
-    } else {
-        scaleMatrix = { imgAspectRatio, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1 };
-    };
-    // std::cout << imgWidth << " " << imgHeight << std::endl;
-    return scaleMatrix;
-}
-
-QMatrix4x4 MyGLWidget::windowScaleMatrix(const float winWidth, const float winHeight) {
-    QMatrix4x4 orthoMatrix;
-    const float winAspectRatio = winWidth / winHeight;
-    const float winVerseRatio  = 1.0f / winAspectRatio;
-    // 实际上这一步写错了，所以有后来的adjuset，iw>ih,ww<wh时，其实iw不用变，ih乘上aspectRatio即可，iw<ih,ww>wh时，ih也不用变，iw乘上verseRatio即可，但是我写完adjust才发现，懒得改了
-    if (winWidth <= winHeight) {
-        orthoMatrix = { winVerseRatio, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, -1.0, 0.0, 0.0,
-            0.0, 0.0, 1.0 };
-    } else {
-        orthoMatrix = { 1.0, 0.0, 0.0, 0.0, 0.0, winAspectRatio, 0.0, 0.0, 0.0, 0.0, -1.0, 0.0, 0.0,
-            0.0, 0.0, 1.0 };
-    }
-    return orthoMatrix;
-}
-
-//
-QMatrix4x4 MyGLWidget::transformMatrix2(
     const float ww, const float wh, const float iw, const float ih) {
     QMatrix4x4 transformMatrix;
 

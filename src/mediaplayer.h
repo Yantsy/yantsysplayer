@@ -1,6 +1,9 @@
 #pragma once
 
 #include <memory>
+#include <mutex>
+#include <queue>
+#include <thread>
 
 #include "audiowidget.h"
 #include "glwidget.h"
@@ -24,6 +27,7 @@ struct VideoFrame {
 
 struct AudioBufferQueue {
     std::queue<AudioChunk> bufferredPcm;
+    SDL_AudioDeviceID device;
 };
 struct VideoBufferQueue {
     std::queue<VideoFrame> bufferredFrm;
@@ -36,11 +40,32 @@ private:
     PtrSet ptrSet;
     MyResampler myResampler;
     MyAudioWidget audioWidget;
+    MyGLWidget videowidget;
     AudioBufferQueue chunkQueue;
 
     int frames { 0 };
-
-    auto openFile(const char* pfilePath) {
+    auto outputInfo(MediaInfo& pmediaInfo) noexcept {
+        std::cout << "File Path: " << pmediaInfo.filePath << "\n"
+                  << "Stream [" << pmediaInfo.vsIndex << "] Video\n"
+                  << "____resolution: " << pmediaInfo.resolution[0] << "x"
+                  << pmediaInfo.resolution[1] << "\n"
+                  << "____duration: " << pmediaInfo.vduration << "s\n"
+                  << "____decoder: " << pmediaInfo.vdecoderName << "\n"
+                  << "____pixel_format: " << pmediaInfo.pxFmtName
+                  << "(depth:" << pmediaInfo.pxFmtDpth << ")\n"
+                  << "Stream [" << pmediaInfo.asIndex << "] Audio\n"
+                  << "____samplerate: " << (float)pmediaInfo.splRate / 1000 << "kHz\n"
+                  << "____duration: " << pmediaInfo.aduration << "s\n"
+                  << "____decoder: " << pmediaInfo.adecoderName << "\n"
+                  << "____channel_layout: "
+                  << (pmediaInfo.channelLayoutName[0] != '\0'
+                             ? pmediaInfo.channelLayoutName
+                             : std::to_string(pmediaInfo.channels).c_str())
+                  << "\n"
+                  << "____sample_format: " << pmediaInfo.splFmtName << "\n"
+                  << std::flush;
+    };
+    auto demux(const char* pfilePath) {
         auto pFormatCtx = avformat_alloc_context();
         if (avformat_open_input(&pFormatCtx, pfilePath, nullptr, nullptr) != 0) {
             std::cerr << "Can't open file\n" << std::flush;
@@ -102,6 +127,10 @@ private:
         }
         mediaInfo.filePath = const_cast<char*>(pfilePath);
         ptrSet.formatCtx.reset(pFormatCtx);
+        audioWidget.copyParameters(mediaInfo);
+        auto swrCtx = myResampler.alcSwrCtx(mediaInfo.channelLayout, mediaInfo.splRate,
+            mediaInfo.sampleFmt, myResampler.toPackedFmt(mediaInfo.sampleFmt));
+        ptrSet.audioRsplCtx.reset(swrCtx);
         auto pvdecFrm = av_frame_alloc();
         auto padecFrm = av_frame_alloc();
         auto pvmyFrm  = av_frame_alloc();
@@ -113,6 +142,7 @@ private:
         ptrSet.amyFrm.reset(pamyFrm);
         ptrSet.paket.reset(ppaket);
         std::cout << "Contexts allocated\n";
+        outputInfo(mediaInfo);
     };
     bool rdFrm(AVFormatContext* pFormatCtx, AVPacket* ppkt) const noexcept {
         return av_read_frame(pFormatCtx, ppkt) >= 0;
@@ -131,27 +161,6 @@ private:
         av_frame_ref(pmyFrame, pdecFrame);
         // av_frame_unref(decFrame);
     }
-    auto outputInfo(MediaInfo& pmediaInfo) const noexcept {
-        std::cout << "File Path: " << pmediaInfo.filePath << "\n"
-                  << "Stream [" << pmediaInfo.vsIndex << "] Video\n"
-                  << "____resolution: " << pmediaInfo.resolution[0] << "x"
-                  << pmediaInfo.resolution[1] << "\n"
-                  << "____duration: " << pmediaInfo.vduration << "s\n"
-                  << "____decoder: " << pmediaInfo.vdecoderName << "\n"
-                  << "____pixel_format: " << pmediaInfo.pxFmtName
-                  << "(depth:" << pmediaInfo.pxFmtDpth << ")\n"
-                  << "Stream [" << pmediaInfo.asIndex << "] Audio\n"
-                  << "____samplerate: " << (float)pmediaInfo.splRate / 1000 << "kHz\n"
-                  << "____duration: " << pmediaInfo.aduration << "s\n"
-                  << "____decoder: " << pmediaInfo.adecoderName << "\n"
-                  << "____channel_layout: "
-                  << (pmediaInfo.channelLayoutName[0] != '\0'
-                             ? pmediaInfo.channelLayoutName
-                             : std::to_string(pmediaInfo.channels).c_str())
-                  << "\n"
-                  << "____sample_format: " << pmediaInfo.splFmtName << "\n"
-                  << std::flush;
-    };
 
     auto decodeLoop(MediaInfo& pmediaInfo, PtrSet& pptrSet) {
         auto swrCtx = ptrSet.audioRsplCtx.get();
@@ -173,17 +182,17 @@ private:
                     AudioChunk chunk { };
                     auto frame      = pptrSet.amyFrm.get();
                     auto outBytes   = av_samples_get_buffer_size(nullptr, mediaInfo.channels,
-                        frame->nb_samples, myResampler.fmtNameTrans2(mediaInfo.sampleFmt), 1);
+                        frame->nb_samples, myResampler.toPackedFmt(mediaInfo.sampleFmt), 1);
                     auto outSamples = swr_get_delay(swrCtx, mediaInfo.splRate) + frame->nb_samples;
                     chunk.pcm.resize(outBytes);
                     uint8_t* out[1] = { chunk.pcm.data() };
                     if (pptrSet.amyFrm.get()->data[1] != nullptr) {
                         auto convertedSamples = swr_convert(swrCtx, out, outSamples,
                             (const uint8_t**)pptrSet.amyFrm->data, frame->nb_samples);
-                        auto convertedBytes   = av_samples_get_buffer_size(nullptr,
-                            mediaInfo.channels, convertedSamples,
-                            myResampler.fmtNameTrans2(mediaInfo.sampleFmt), 1);
-                        outBytes              = convertedBytes;
+                        auto convertedBytes =
+                            av_samples_get_buffer_size(nullptr, mediaInfo.channels,
+                                convertedSamples, myResampler.toPackedFmt(mediaInfo.sampleFmt), 1);
+                        outBytes = convertedBytes;
                     } else {
                         chunk.pcm.insert(
                             chunk.pcm.end(), chunk.pcm.data(), chunk.pcm.data() + outBytes);
@@ -197,7 +206,9 @@ private:
         std::cout << "Decoding Completed\n";
         std::cout << "Buffer stored:" << chunkQueue.bufferredPcm.size() << "chunks\n";
     }
-    auto play(SDL_AudioDeviceID pdevice, AudioBufferQueue& pqueue) {
+    auto playLoop(AudioBufferQueue& pqueue) {
+        auto& pdevice = pqueue.device;
+        pdevice       = std::move(audioWidget.audioDevice);
         if (pdevice < 0) {
             std::cerr << "SDL_AudioDevice Initialization Failed" << std::flush;
             return;
@@ -211,22 +222,14 @@ private:
             SDL_Delay(10);
     }
 
+    auto threadManage() { }
+
 public:
-    MyGLWidget videowidget;
-    MediaPlayer() {
-
-    };
-    ~MediaPlayer() { };
-    void open(const char* pfilePath) {
-        openFile(pfilePath);
-        outputInfo(mediaInfo);
-        audioWidget.open(mediaInfo);
-        auto swrCtx = myResampler.alcSwrCtx(mediaInfo.channelLayout, mediaInfo.splRate,
-            mediaInfo.sampleFmt, myResampler.fmtNameTrans2(mediaInfo.sampleFmt));
-        ptrSet.audioRsplCtx.reset(swrCtx);
+    MediaPlayer() { videowidget.show(); };
+    ~MediaPlayer() { std::cout << "Total Frames:" << frames << std::endl; };
+    void open(const char* pfile) {
+        demux(pfile);
         decodeLoop(mediaInfo, ptrSet);
-        std::cout << "Total Frames:" << frames << std::endl;
-
-        play(audioWidget.audioDevice, chunkQueue);
+        playLoop(chunkQueue);
     }
 };
