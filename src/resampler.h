@@ -16,28 +16,6 @@ public:
         swr_init(pSwrCtx);
         return pSwrCtx;
     }
-    auto detectFmt(AVSampleFormat& psprFmt, int& pChannels) {
-        if (psprFmt == AV_SAMPLE_FMT_NONE) {
-            std::cerr << "Can't find supported sample format\n";
-            // exit(-1);
-        } else if (psprFmt == AV_SAMPLE_FMT_U8P || psprFmt == AV_SAMPLE_FMT_S16P
-            || psprFmt == AV_SAMPLE_FMT_S32P || psprFmt == AV_SAMPLE_FMT_S64P
-            || psprFmt == AV_SAMPLE_FMT_FLTP || psprFmt == AV_SAMPLE_FMT_DBLP || pChannels > 1) {
-            isPlannar = true;
-        } else {
-        }
-        std::cout << "__sample format:" << psprFmt << "\n";
-        return 0;
-    }
-    auto plannarTpacked(uint8_t pChnllData) {
-        uint8_t pPackedData;
-        if (isPlannar) {
-            std::cout << "From plannar to packed success\n";
-        } else {
-            std::cout << "No need to resample\n";
-        }
-        return pPackedData;
-    }
 
     auto toSDLAudioFmt(const AVSampleFormat& psprFmt) const noexcept {
         switch (psprFmt) {
@@ -83,8 +61,6 @@ public:
             return psprFmt;
         }
     }
-
-    auto free(SwrContext* pSwrCtx) const noexcept { swr_free(&pSwrCtx); }
 
 private:
     bool isPlannar = false;

@@ -1,30 +1,30 @@
 #pragma once
 #include <iostream>
 extern "C" {
-#include <SDL2/SDL.h>
-#include <SDL2/SDL_audio.h>
-#include <SDL2/SDL_mixer.h>
+
 #include <libswresample/swresample.h>
 }
+#include "buffer.h"
 #include "public.h"
 #include "resampler.h"
-struct MyAudioWidget {
+class MyAudioWidget : public QObject {
+    Q_OBJECT
+signals:
+    void returnTime(int64_t pts);
 
-    MyAudioWidget() {
-        if (SDL_Init(SDL_INIT_AUDIO) < 0) {
-            std::cerr << "Can't init SDL\n";
-        }
-        std::cout << "Init SDL_Audio success\n";
-    };
-
-    ~MyAudioWidget() { SDL_Quit(); };
-    auto copyParameters(MediaInfo& mediaInfo) {
+private:
+    SDL_AudioSpec wantedSpec { }, obtainedSpec { };
+    SDL_AudioDeviceID audioDevice;
+    int count { 0 };
+    std::chrono::steady_clock::time_point start;
+    std::chrono::steady_clock::time_point update;
+    auto initialize(AudioInfo& paudioInfo) {
         MyResampler myResampler;
-        wantedSpec.freq     = mediaInfo.splRate;
-        wantedSpec.format   = myResampler.toSDLAudioFmt(mediaInfo.sampleFmt);
-        wantedSpec.channels = mediaInfo.channels;
-        wantedSpec.samples  = mediaInfo.samples;
-        wantedSpec.silence  = mediaInfo.silence;
+        wantedSpec.freq     = paudioInfo.splRate;
+        wantedSpec.format   = myResampler.toSDLAudioFmt(paudioInfo.sampleFmt);
+        wantedSpec.channels = paudioInfo.channels;
+        wantedSpec.samples  = paudioInfo.samples;
+        wantedSpec.silence  = paudioInfo.silence;
         wantedSpec.callback = nullptr;
 
         audioDevice = SDL_OpenAudioDevice(NULL, 0, &wantedSpec, &obtainedSpec, 0);
@@ -34,6 +34,23 @@ struct MyAudioWidget {
         SDL_PauseAudioDevice(audioDevice, 0);
     };
 
-    SDL_AudioSpec wantedSpec { }, obtainedSpec { };
-    SDL_AudioDeviceID audioDevice;
+    auto playLoop(std::shared_ptr<AudioChunk> audioChunk) {
+        SDL_QueueAudio(
+            audioDevice, audioChunk.get()->pcm.data(), (Uint32)audioChunk.get()->pcm.size());
+        auto pts = audioChunk->pts;
+        emit returnTime(pts);
+    };
+public slots:
+    void chunkIn(std::shared_ptr<AudioChunk> audioChunk) { playLoop(audioChunk); };
+    void getInfo(AudioInfo paudioInfo) { initialize(paudioInfo); };
+
+public:
+    MyAudioWidget() {
+        if (SDL_Init(SDL_INIT_AUDIO) < 0) {
+            std::cerr << "Can't init SDL\n";
+        }
+        std::cout << "Init SDL_Audio success\n";
+    };
+
+    ~MyAudioWidget() { SDL_Quit(); };
 };

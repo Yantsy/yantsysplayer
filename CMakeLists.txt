@@ -40,6 +40,9 @@ qt_add_executable(${PROJECT_NAME}
 ../src/audioWidget_sdl2.h
 ../src/resampler.h
 ../src/public.h
+../src/buffer.h
+../src/demuxer.h
+../src/mediaplayer.h
 )
 qt_add_resources({${PROJECT_NAME} ../resources.qrc})
 

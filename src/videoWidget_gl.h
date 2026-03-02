@@ -1,4 +1,5 @@
 #pragma once
+#include "public.h"
 #include <QElapsedTimer>
 #include <QImage>
 #include <QMatrix4x4>
@@ -25,9 +26,15 @@ public:
     void renderWithOpenGL(uint8_t* Y, uint8_t* U, uint8_t* V, int& w, int& h, int& pstrideY,
         int& pstrideU, int& pstrideV, const char& ppxFmt, int pdepth) noexcept;
     void renderWithOpenGL8(uint8_t* Y, uint8_t* U, uint8_t* V, int& w, int& h, int& strideY,
-        int& strideUV, const char& ppxFmt) noexcept;
+        int& strideU, int& strideV, const char& ppxFmt) noexcept;
     void renderWithOpenGL10(uint8_t* Y, uint8_t* U, uint8_t* V, int& w, int& h, int& strideY,
-        int& strideUV, const char& ppxFmt) noexcept;
+        int& strideU, int& strideV, const char& ppxFmt) noexcept;
+public slots:
+    void frameIn(std::shared_ptr<VideoFrame> pvideoFrame);
+    void getInfo(VideoInfo pvideoInfo);
+
+signals:
+    void pop();
 
 protected:
     void initializeGL() override;
@@ -55,11 +62,11 @@ private:
     float windowWidth  = 0.0f;
     float windowHeight = 0.0f;
     bool isTenbit      = false;
+    int depth { 0 };
+    char pxFmt;
     QMatrix4x4 imageScaleMatrix(float imgWidth, float imgHeight);
     QMatrix4x4 windowScaleMatrix(float winWidth, float winHeight);
     QMatrix4x4 transformMatrix(float ww, float wh, float iw, float ih);
     QMatrix4x4 transformMatrix2(float ww, float wh, float iw, float ih);
     QElapsedTimer* timer = nullptr;
-
-private slots:
 };

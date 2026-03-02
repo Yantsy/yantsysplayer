@@ -36,7 +36,7 @@ void MyGLWidget::renderWithOpenGL(uint8_t* Y, uint8_t* U, uint8_t* V, int& w, in
     int& pstrideU, int& pstrideV, const char& ppxFmt, int pdepth) noexcept { };
 
 void MyGLWidget::renderWithOpenGL8(uint8_t* Y, uint8_t* U, uint8_t* V, int& w, int& h, int& strideY,
-    int& strideUV, const char& ppxFmt) noexcept {
+    int& strideU, int& strideV, const char& ppxFmt) noexcept {
 
     // isTenbit = false;
     renderCount       = renderCount + 1;
@@ -88,10 +88,12 @@ void MyGLWidget::renderWithOpenGL8(uint8_t* Y, uint8_t* U, uint8_t* V, int& w, i
         m_textureY->bind();
         glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, w, h, GL_RED, GL_UNSIGNED_BYTE, Y);
 
-        glPixelStorei(GL_UNPACK_ROW_LENGTH, strideUV); // UV 平面的行长度
+        glPixelStorei(GL_UNPACK_ROW_LENGTH, strideU); // UV 平面的行长度
 
         m_textureU->bind();
         glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, w / 2, h / 2, GL_RED, GL_UNSIGNED_BYTE, U);
+
+        glPixelStorei(GL_UNPACK_ROW_LENGTH, strideV);
 
         m_textureV->bind();
         glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, w / 2, h / 2, GL_RED, GL_UNSIGNED_BYTE, V);
@@ -110,7 +112,7 @@ void MyGLWidget::renderWithOpenGL8(uint8_t* Y, uint8_t* U, uint8_t* V, int& w, i
     // 使用 repaint() 强制立即重绘，而不是 update()
 }
 void MyGLWidget::renderWithOpenGL10(uint8_t* Y, uint8_t* U, uint8_t* V, int& w, int& h,
-    int& strideY, int& strideUV, const char& ppxFmt) noexcept {
+    int& strideY, int& strideU, int& strideV, const char& ppxFmt) noexcept {
     isTenbit          = true;
     renderCount       = renderCount + 1;
     imageWidth        = w;
@@ -161,10 +163,12 @@ void MyGLWidget::renderWithOpenGL10(uint8_t* Y, uint8_t* U, uint8_t* V, int& w, 
         m_textureY->bind();
         glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, w, h, GL_RED, GL_UNSIGNED_SHORT, Y);
 
-        glPixelStorei(GL_UNPACK_ROW_LENGTH, strideUV / 2); // UV 平面的行长度
+        glPixelStorei(GL_UNPACK_ROW_LENGTH, strideU / 2); // UV 平面的行长度
 
         m_textureU->bind();
         glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, w / 2, h / 2, GL_RED, GL_UNSIGNED_SHORT, U);
+
+        glPixelStorei(GL_UNPACK_ROW_LENGTH, strideV / 2);
 
         m_textureV->bind();
         glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, w / 2, h / 2, GL_RED, GL_UNSIGNED_SHORT, V);
@@ -177,6 +181,21 @@ void MyGLWidget::renderWithOpenGL10(uint8_t* Y, uint8_t* U, uint8_t* V, int& w, 
     }
     repaint();
 }
+void MyGLWidget::getInfo(VideoInfo pvideoInfo) {
+    pxFmt = pvideoInfo.pxFmt;
+    depth = pvideoInfo.pxFmtDpth;
+};
+void MyGLWidget::frameIn(std::shared_ptr<VideoFrame> pvideoFrame) {
+    if (depth == 8) {
+        renderWithOpenGL8(pvideoFrame->y.data(), pvideoFrame->u.data(), pvideoFrame->v.data(),
+            pvideoFrame->width, pvideoFrame->height, pvideoFrame->linesize[0],
+            pvideoFrame->linesize[1], pvideoFrame->linesize[2], pxFmt);
+    } else if (depth == 10) {
+        renderWithOpenGL10(pvideoFrame->y.data(), pvideoFrame->u.data(), pvideoFrame->v.data(),
+            pvideoFrame->width, pvideoFrame->height, pvideoFrame->linesize[0],
+            pvideoFrame->linesize[1], pvideoFrame->linesize[2], pxFmt);
+    }
+};
 void MyGLWidget::initializeGL() {
     // constexpr auto m_imageSource = ":/resources/aichan.jpg";
     //  imageWidth = QImage(m_imageSource).width();
