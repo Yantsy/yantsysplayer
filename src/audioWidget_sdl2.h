@@ -10,12 +10,13 @@ extern "C" {
 class MyAudioWidget : public QObject {
     Q_OBJECT
 signals:
-    void returnTime(int64_t pts);
+    void returnTime(double realDuration);
 
 private:
     SDL_AudioSpec wantedSpec { }, obtainedSpec { };
     SDL_AudioDeviceID audioDevice;
-    int count { 0 };
+    int bytesPerSample { 0 }, bytesPerSecond { 0 };
+    double timebase { 0.0 };
     std::chrono::steady_clock::time_point start;
     std::chrono::steady_clock::time_point update;
     auto initialize(AudioInfo& paudioInfo) {
@@ -26,6 +27,9 @@ private:
         wantedSpec.samples  = paudioInfo.samples;
         wantedSpec.silence  = paudioInfo.silence;
         wantedSpec.callback = nullptr;
+        bytesPerSample      = av_get_bytes_per_sample(paudioInfo.sampleFmt);
+        bytesPerSecond      = wantedSpec.freq * wantedSpec.channels * bytesPerSample;
+        timebase            = paudioInfo.atimeBase;
 
         audioDevice = SDL_OpenAudioDevice(NULL, 0, &wantedSpec, &obtainedSpec, 0);
         if (audioDevice == 0) {
@@ -37,8 +41,11 @@ private:
     auto playLoop(std::shared_ptr<AudioChunk> audioChunk) {
         SDL_QueueAudio(
             audioDevice, audioChunk.get()->pcm.data(), (Uint32)audioChunk.get()->pcm.size());
-        auto pts = audioChunk->pts;
-        emit returnTime(pts);
+
+        auto latestDuration = audioChunk->pts * timebase;
+        auto delay          = SDL_GetQueuedAudioSize(audioDevice) / bytesPerSecond;
+        latestDuration -= delay;
+        emit returnTime(latestDuration);
     };
 public slots:
     void chunkIn(std::shared_ptr<AudioChunk> audioChunk) { playLoop(audioChunk); };

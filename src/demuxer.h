@@ -21,6 +21,7 @@ private:
     VPtrSet& vPtrs { ptrSet.vPtrs };
     APtrSet& aPtrs { ptrSet.aPtrs };
     MediaInfo mediaInfo;
+    ChunkQueue chunks;
     MyResampler myResampler;
     AudioInfo& audioInfo { mediaInfo.audioInfo };
     VideoInfo& videoInfo { mediaInfo.videoInfo };
@@ -44,6 +45,7 @@ private:
                   << "\n"
                   << "____sample_format: " << pmediaInfo.audioInfo.splFmtName << "\n"
                   << std::flush;
+        std::cout << " " << std::endl;
     };
     auto demux(std::string pfilePath) {
         auto pFormatCtx = avformat_alloc_context();
@@ -136,19 +138,23 @@ private:
             av_frame_unref(pvPtrs->decodedFrm.get());
             auto avFrame = pvPtrs->myFrm.get();
             auto frame   = std::make_shared<VideoFrame>(avFrame);
+
             if (count == 0) {
                 start = std::chrono::steady_clock::now();
                 count += 1;
             }
             update        = std::chrono::steady_clock::now();
             auto duration = std::chrono::duration<double>(update - start).count();
+
             auto vTime { avFrame->pts * pvideoInfo->vtimeBase };
-            double diff = vTime - duration;
+            auto diff = vTime - duration;
             if (diff > 0.01) {
                 std::this_thread::sleep_for(std::chrono::duration<double>(diff));
             } else if (diff < -0.05) {
                 continue;
             }
+            av_frame_unref(avFrame);
+
             emit frameReady(frame);
         }
     };
@@ -176,6 +182,7 @@ private:
             } else {
                 chunk->pcm.assign(avFrame->data[0], avFrame->data[0] + outBytes);
             }
+            av_frame_unref(avFrame);
             emit chunkReady(chunk);
         }
     };
@@ -190,6 +197,7 @@ private:
                 decodeVideo(packets, &(pptrSet->vPtrs), &(pmediaInfo->videoInfo));
             }
         }
+        av_packet_unref(packets);
     }
 
 public slots:
@@ -198,7 +206,7 @@ public slots:
         decode(&ptrSet, &mediaInfo);
         emit finished();
     }
-    void getAudioTime(int64_t pts) { clock.update(pts * (mediaInfo.audioInfo.atimeBase)); }
+    void getAudioTime(double realDuration) { clock.update(realDuration); }
 
 public:
     DemuxerPlusDecoder(std::string pfilePath)
