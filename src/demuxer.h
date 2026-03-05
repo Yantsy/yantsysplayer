@@ -9,6 +9,7 @@ signals:
     void chunkReady(std::shared_ptr<AudioChunk> audioChunk);
     void sendVideoInfo(VideoInfo pvideoInfo);
     void sendAudioInfo(AudioInfo paudioInfo);
+    void durationChanged(double duration);
     void finished();
 
 private:
@@ -17,6 +18,8 @@ private:
     std::chrono::steady_clock::time_point start;
     std::chrono::steady_clock::time_point update;
     int count { 0 };
+    bool jump { false };
+    double newTime { 0.0 };
     PtrSet ptrSet;
     VPtrSet& vPtrs { ptrSet.vPtrs };
     APtrSet& aPtrs { ptrSet.aPtrs };
@@ -102,8 +105,9 @@ private:
                 videoInfo.resolution[0] = cdcPar->width;
                 videoInfo.resolution[1] = cdcPar->height;
                 videoInfo.vduration     = duration;
-                videoInfo.pxFmt         = vPtrs.decoderCtx->pix_fmt;
-                videoInfo.pxFmtName     = const_cast<char*>(av_get_pix_fmt_name(videoInfo.pxFmt));
+                emit durationChanged(duration);
+                videoInfo.pxFmt     = vPtrs.decoderCtx->pix_fmt;
+                videoInfo.pxFmtName = const_cast<char*>(av_get_pix_fmt_name(videoInfo.pxFmt));
                 const AVPixFmtDescriptor* pDesc = av_pix_fmt_desc_get(videoInfo.pxFmt);
                 videoInfo.pxFmtDpth             = pDesc->comp[1].depth;
                 std::cout << "Video Stream Info Get\n";
@@ -145,7 +149,6 @@ private:
             }
             update        = std::chrono::steady_clock::now();
             auto duration = std::chrono::duration<double>(update - start).count();
-
             auto vTime { avFrame->pts * pvideoInfo->vtimeBase };
             auto diff = vTime - duration;
             if (diff > 0.01) {
@@ -164,9 +167,11 @@ private:
         while (avcodec_receive_frame(paPtrs->decoderCtx.get(), paPtrs->decodedFrm.get()) >= 0) {
             av_frame_ref(paPtrs->myFrm.get(), paPtrs->decodedFrm.get());
             av_frame_unref(paPtrs->decodedFrm.get());
-            auto avFrame    = paPtrs->myFrm.get();
-            auto chunk      = std::make_shared<AudioChunk>();
-            chunk->pts      = avFrame->pts;
+            auto avFrame = paPtrs->myFrm.get();
+            auto chunk   = std::make_shared<AudioChunk>();
+            chunk->pts   = avFrame->pts;
+            auto secs    = (chunk->pts) * (paudioInfo->atimeBase);
+            clock.update(secs);
             auto outBytes   = av_samples_get_buffer_size(nullptr, paudioInfo->channels,
                 avFrame->nb_samples, myResampler.toPackedFmt(paudioInfo->sampleFmt), 1);
             auto outSamples = swr_get_delay(paPtrs->resamplerCtx.get(), paudioInfo->splRate)
@@ -187,6 +192,17 @@ private:
         }
     };
     auto decode(PtrSet* pptrSet, MediaInfo* pmediaInfo) {
+        if (jump) {
+            jump      = false;
+            auto aPts = newTime / (pmediaInfo->audioInfo.atimeBase);
+            auto vPts = newTime / (pmediaInfo->videoInfo.vtimeBase);
+            av_seek_frame(pptrSet->formatCtx.get(), pmediaInfo->audioInfo.asIndex, aPts,
+                AVSEEK_FLAG_BACKWARD);
+            avcodec_flush_buffers(pptrSet->aPtrs.decoderCtx.get());
+            av_seek_frame(pptrSet->formatCtx.get(), pmediaInfo->videoInfo.vsIndex, vPts,
+                AVSEEK_FLAG_BACKWARD);
+            avcodec_flush_buffers(pptrSet->vPtrs.decoderCtx.get());
+        }
         auto packets { pptrSet->packet.get() };
         while (av_read_frame(pptrSet->formatCtx.get(), packets) >= 0) {
 
@@ -212,4 +228,8 @@ public:
     DemuxerPlusDecoder(std::string pfilePath)
         : filePath(std::move(pfilePath)) { };
     ~DemuxerPlusDecoder() { };
+    void toJump(double time) {
+        newTime = time;
+        jump    = true;
+    }
 };

@@ -45,7 +45,7 @@ private:
         auto latestDuration = audioChunk->pts * timebase;
         auto delay          = SDL_GetQueuedAudioSize(audioDevice) / bytesPerSecond;
         latestDuration -= delay;
-        emit returnTime(latestDuration);
+        // emit returnTime(latestDuration);
     };
 public slots:
     void chunkIn(std::shared_ptr<AudioChunk> audioChunk) { playLoop(audioChunk); };

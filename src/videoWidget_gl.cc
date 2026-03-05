@@ -24,6 +24,7 @@ MyGLWidget::~MyGLWidget() {
     delete m_textureU;
     delete m_textureV;
     doneCurrent();
+    emit close();
     for (const auto e : { "至", "是", "工", "程", "已", "毕", "，", "于", "斯", "合", "题" }) {
         std::cout << e << std::flush;
         using namespace std::chrono_literals;
@@ -182,10 +183,13 @@ void MyGLWidget::renderWithOpenGL10(uint8_t* Y, uint8_t* U, uint8_t* V, int& w, 
     repaint();
 }
 void MyGLWidget::getInfo(VideoInfo pvideoInfo) {
-    pxFmt = pvideoInfo.pxFmt;
-    depth = pvideoInfo.pxFmtDpth;
+    pxFmt    = pvideoInfo.pxFmt;
+    depth    = pvideoInfo.pxFmtDpth;
+    timeBase = pvideoInfo.vtimeBase;
 };
 void MyGLWidget::frameIn(std::shared_ptr<VideoFrame> pvideoFrame) {
+    latest = (pvideoFrame->pts) * timeBase;
+    emit progressChanged(latest);
     if (depth == 8) {
         renderWithOpenGL8(pvideoFrame->y.data(), pvideoFrame->u.data(), pvideoFrame->v.data(),
             pvideoFrame->width, pvideoFrame->height, pvideoFrame->linesize[0],

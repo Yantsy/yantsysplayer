@@ -1,5 +1,6 @@
 #include "QFileDialog"
 #include "mediaplayer.h"
+#include "yslider.h"
 #include <QApplication>
 #include <QObject>
 #include <QPointer>
@@ -21,9 +22,17 @@ int main(int argc, char* argv[]) {
     auto* layout      = new QVBoxLayout(&window);
     auto* pickFileBtn = new QPushButton("获取文件");
     MyGLWidget videoWidget;
+    yslider slider;
+    slider.getpara(8, 8);
+    slider.setgroovecolor(QColor(255, 255, 255));
+    slider.settracecolor(QColor(51, 232, 219));
+    slider.sethandelcolor(QColor(235, 88, 88));
     layout->addWidget(pickFileBtn);
     layout->addWidget(&videoWidget, 1);
+    slider.setParent(&videoWidget);
     window.resize(960, 640);
+    slider.resize(videoWidget.width() - 4, 10);
+    slider.move(2, videoWidget.height() - 2);
     window.show();
 
     bool isPlaying           = false;
@@ -47,18 +56,21 @@ int main(int argc, char* argv[]) {
         thread            = new QThread(&window);
         auto* demuxer     = new DemuxerPlusDecoder(filePath.toStdString());
         demuxer->moveToThread(thread);
-
         QObject::connect(thread, &QThread::started, demuxer, &DemuxerPlusDecoder::processStart);
+        QObject::connect(
+            demuxer, &DemuxerPlusDecoder::durationChanged, &slider, &yslider::setMaximum);
         QObject::connect(
             demuxer, &DemuxerPlusDecoder::sendVideoInfo, &videoWidget, &MyGLWidget::getInfo);
         QObject::connect(
             demuxer, &DemuxerPlusDecoder::sendAudioInfo, audioWidget, &MyAudioWidget::getInfo);
         QObject::connect(
             demuxer, &DemuxerPlusDecoder::frameReady, &videoWidget, &MyGLWidget::frameIn);
+        QObject::connect(&videoWidget, &MyGLWidget::progressChanged, &slider, &yslider::setValue);
         QObject::connect(
             demuxer, &DemuxerPlusDecoder::chunkReady, audioWidget, &MyAudioWidget::chunkIn);
-        QObject::connect(
-            audioWidget, &MyAudioWidget::returnTime, demuxer, &DemuxerPlusDecoder::getAudioTime);
+        /*
+    QObject::connect(
+        audioWidget, &MyAudioWidget::returnTime, demuxer, &DemuxerPlusDecoder::getAudioTime);*/
 
         QObject::connect(demuxer, &DemuxerPlusDecoder::finished, thread, &QThread::quit);
         QObject::connect(demuxer, &DemuxerPlusDecoder::finished, demuxer, &QObject::deleteLater);
@@ -71,6 +83,8 @@ int main(int argc, char* argv[]) {
             pickFileBtn->setText("获取文件");
             thread = nullptr;
         });
+        QObject::connect(
+            &slider, &yslider::dragStarted, demuxer, [&]() { demuxer->toJump(slider.tvalue); });
 
         thread->start();
     });

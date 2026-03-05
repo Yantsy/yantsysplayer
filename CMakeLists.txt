@@ -43,6 +43,8 @@ qt_add_executable(${PROJECT_NAME}
 ../src/buffer.h
 ../src/demuxer.h
 ../src/mediaplayer.h
+../src/yslider.h
+../src/yslider.cc
 )
 qt_add_resources({${PROJECT_NAME} ../resources.qrc})
 

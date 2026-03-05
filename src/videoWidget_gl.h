@@ -29,18 +29,18 @@ public:
         int& strideU, int& strideV, const char& ppxFmt) noexcept;
     void renderWithOpenGL10(uint8_t* Y, uint8_t* U, uint8_t* V, int& w, int& h, int& strideY,
         int& strideU, int& strideV, const char& ppxFmt) noexcept;
+    double latest { 0.0 };
 public slots:
     void frameIn(std::shared_ptr<VideoFrame> pvideoFrame);
     void getInfo(VideoInfo pvideoInfo);
-
-signals:
-    void pop();
 
 protected:
     void initializeGL() override;
     void resizeGL(int w, int h) override;
     void paintGL() override;
     // void resizeEvent(QResizeEvent *event) override;
+signals:
+    void progressChanged(double progress);
 
 private:
     QOpenGLVertexArrayObject *m_vao0 = nullptr, *m_vao1 = nullptr;
@@ -63,6 +63,8 @@ private:
     float windowHeight = 0.0f;
     bool isTenbit      = false;
     int depth { 0 };
+    double timeBase { 0.0 };
+
     char pxFmt;
     QMatrix4x4 imageScaleMatrix(float imgWidth, float imgHeight);
     QMatrix4x4 windowScaleMatrix(float winWidth, float winHeight);
