@@ -67,9 +67,6 @@ int main(int argc, char* argv[]) {
         QObject::connect(&videoWidget, &MyGLWidget::progressChanged, &slider, &yslider::setValue);
         QObject::connect(
             demuxer, &DemuxerPlusDecoder::chunkReady, audioWidget, &MyAudioWidget::chunkIn);
-        /*
-    QObject::connect(
-        audioWidget, &MyAudioWidget::returnTime, demuxer, &DemuxerPlusDecoder::getAudioTime);*/
 
         QObject::connect(demuxer, &DemuxerPlusDecoder::finished, thread, &QThread::quit);
         QObject::connect(demuxer, &DemuxerPlusDecoder::finished, demuxer, &QObject::deleteLater);
@@ -82,8 +79,6 @@ int main(int argc, char* argv[]) {
             pickFileBtn->setText("获取文件");
             thread = nullptr;
         });
-        QObject::connect(&slider, &yslider::dragStarted, demuxer,
-            [demuxer, &slider]() { demuxer->toJump(slider.tvalue); });
 
         thread->start();
     });

@@ -19,16 +19,16 @@ public:
     explicit MyGLWidget(QWidget* parent = nullptr) noexcept;
     ~MyGLWidget();
     // void render(uint8_t *Y, uint8_t *U, uint8_t *V, char *ppxFmt) noexcept;
-    void renderWithOpenGL(uint8_t* Y, uint8_t* U, uint8_t* V, int& w, int& h, int& pstrideY,
-        int& pstrideU, int& pstrideV, const char& ppxFmt, int pdepth) noexcept;
+    void renderWithOpenGL(uint8_t* Y, uint8_t* U, uint8_t* V, int& w, int& h, int& strideY,
+        int& strideU, int& strideV, const char& pxFmt, int depth) noexcept;
     void renderWithOpenGL8(uint8_t* Y, uint8_t* U, uint8_t* V, int& w, int& h, int& strideY,
-        int& strideU, int& strideV, const char& ppxFmt) noexcept;
+        int& strideU, int& strideV, const char& pxFmt) noexcept;
     void renderWithOpenGL10(uint8_t* Y, uint8_t* U, uint8_t* V, int& w, int& h, int& strideY,
-        int& strideU, int& strideV, const char& ppxFmt) noexcept;
+        int& strideU, int& strideV, const char& pxFmt) noexcept;
     double latest { 0.0 };
 public slots:
-    void frameIn(std::shared_ptr<VideoFrame> pvideoFrame);
-    void getInfo(VideoInfo pvideoInfo);
+    void frameIn(std::shared_ptr<VideoFrame> videoFrame);
+    void getInfo(VideoInfo videoInfo);
 
 protected:
     void initializeGL() override;

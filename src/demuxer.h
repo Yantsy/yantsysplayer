@@ -7,8 +7,8 @@ class DemuxerPlusDecoder : public QObject {
 signals:
     void frameReady(std::shared_ptr<VideoFrame> videoFrame);
     void chunkReady(std::shared_ptr<AudioChunk> audioChunk);
-    void sendVideoInfo(VideoInfo pvideoInfo);
-    void sendAudioInfo(AudioInfo paudioInfo, void* buffer);
+    void sendVideoInfo(VideoInfo videoInfo);
+    void sendAudioInfo(AudioInfo audioInfo, void* buffer);
     void durationChanged(double duration);
     void finished();
 
@@ -28,31 +28,31 @@ private:
     MyResampler myResampler;
     AudioInfo& audioInfo { mediaInfo.audioInfo };
     VideoInfo& videoInfo { mediaInfo.videoInfo };
-    auto outputInfo(MediaInfo pmediaInfo) {
-        std::cout << "File Path: " << pmediaInfo.filePath << "\n"
-                  << "Stream [" << pmediaInfo.videoInfo.vsIndex << "] Video\n"
-                  << "____resolution: " << pmediaInfo.videoInfo.resolution[0] << "x"
-                  << pmediaInfo.videoInfo.resolution[1] << "\n"
-                  << "____duration: " << pmediaInfo.videoInfo.vduration << "s\n"
-                  << "____decoder: " << pmediaInfo.videoInfo.vdecoderName << "\n"
-                  << "____pixel_format: " << pmediaInfo.videoInfo.pxFmtName
-                  << "(depth:" << pmediaInfo.videoInfo.pxFmtDpth << ")\n"
-                  << "Stream [" << pmediaInfo.audioInfo.asIndex << "] Audio\n"
-                  << "____samplerate: " << (float)pmediaInfo.audioInfo.splRate / 1000 << "kHz\n"
-                  << "____duration: " << pmediaInfo.audioInfo.aduration << "s\n"
-                  << "____decoder: " << pmediaInfo.audioInfo.adecoderName << "\n"
+    auto outputInfo(MediaInfo mediaInfo) {
+        std::cout << "File Path: " << mediaInfo.filePath << "\n"
+                  << "Stream [" << mediaInfo.videoInfo.vsIndex << "] Video\n"
+                  << "____resolution: " << mediaInfo.videoInfo.resolution[0] << "x"
+                  << mediaInfo.videoInfo.resolution[1] << "\n"
+                  << "____duration: " << mediaInfo.videoInfo.vduration << "s\n"
+                  << "____decoder: " << mediaInfo.videoInfo.vdecoderName << "\n"
+                  << "____pixel_format: " << mediaInfo.videoInfo.pxFmtName
+                  << "(depth:" << mediaInfo.videoInfo.pxFmtDpth << ")\n"
+                  << "Stream [" << mediaInfo.audioInfo.asIndex << "] Audio\n"
+                  << "____samplerate: " << (float)mediaInfo.audioInfo.splRate / 1000 << "kHz\n"
+                  << "____duration: " << mediaInfo.audioInfo.aduration << "s\n"
+                  << "____decoder: " << mediaInfo.audioInfo.adecoderName << "\n"
                   << "____channel_layout: "
-                  << (pmediaInfo.audioInfo.channelLayoutName[0] != '\0'
-                             ? pmediaInfo.audioInfo.channelLayoutName
-                             : std::to_string(pmediaInfo.audioInfo.channels).c_str())
+                  << (mediaInfo.audioInfo.channelLayoutName[0] != '\0'
+                             ? mediaInfo.audioInfo.channelLayoutName
+                             : std::to_string(mediaInfo.audioInfo.channels).c_str())
                   << "\n"
-                  << "____sample_format: " << pmediaInfo.audioInfo.splFmtName << "\n"
+                  << "____sample_format: " << mediaInfo.audioInfo.splFmtName << "\n"
                   << std::flush;
         std::cout << " " << std::endl;
     };
-    auto demux(std::string pfilePath) {
+    auto demux(std::string filePath) {
         auto pFormatCtx = avformat_alloc_context();
-        auto file       = pfilePath.c_str();
+        auto file       = filePath.c_str();
         if (avformat_open_input(&pFormatCtx, file, nullptr, nullptr) != 0) {
             std::cerr << "Can't open file\n" << std::flush;
         }
@@ -111,7 +111,6 @@ private:
                 const AVPixFmtDescriptor* pDesc = av_pix_fmt_desc_get(videoInfo.pxFmt);
                 videoInfo.pxFmtDpth             = pDesc->comp[1].depth;
                 std::cout << "Video Stream Info Get\n";
-                emit sendVideoInfo(videoInfo);
             }
         }
         mediaInfo.filePath = const_cast<char*>(file);
@@ -133,11 +132,12 @@ private:
         std::cout << "Contexts allocated\n";
         outputInfo(mediaInfo);
         emit sendAudioInfo(audioInfo, &(ptrSet.aPtrs));
+        emit sendVideoInfo(videoInfo);
     }
 
-    auto decodeVideo(AVPacket* ppacket, VPtrSet* pvPtrs, VideoInfo* pvideoInfo) {
-        avcodec_send_packet(pvPtrs->decoderCtx.get(), ppacket);
-        av_packet_unref(ppacket);
+    auto decodeVideo(AVPacket* packet, VPtrSet* pvPtrs, VideoInfo* videoInfo) {
+        avcodec_send_packet(pvPtrs->decoderCtx.get(), packet);
+        av_packet_unref(packet);
         while (avcodec_receive_frame(pvPtrs->decoderCtx.get(), pvPtrs->decodedFrm.get()) >= 0) {
             av_frame_ref(pvPtrs->myFrm.get(), pvPtrs->decodedFrm.get());
             av_frame_unref(pvPtrs->decodedFrm.get());
@@ -150,7 +150,7 @@ private:
             }
             update        = std::chrono::steady_clock::now();
             auto duration = std::chrono::duration<double>(update - start).count();
-            auto vTime { avFrame->pts * pvideoInfo->vtimeBase };
+            auto vTime { avFrame->pts * videoInfo->vtimeBase };
             auto diff = vTime - duration;
             if (diff > 0.01) {
                 std::this_thread::sleep_for(std::chrono::duration<double>(diff));
@@ -162,26 +162,26 @@ private:
             emit frameReady(frame);
         }
     };
-    auto decodeAudio(AVPacket* ppacket, APtrSet* paPtrs, AudioInfo* paudioInfo) {
-        avcodec_send_packet(paPtrs->decoderCtx.get(), ppacket);
-        av_packet_unref(ppacket);
+    auto decodeAudio(AVPacket* packet, APtrSet* paPtrs, AudioInfo* audioInfo) {
+        avcodec_send_packet(paPtrs->decoderCtx.get(), packet);
+        av_packet_unref(packet);
         while (avcodec_receive_frame(paPtrs->decoderCtx.get(), paPtrs->decodedFrm.get()) >= 0) {
             av_frame_ref(paPtrs->myFrm.get(), paPtrs->decodedFrm.get());
             av_frame_unref(paPtrs->decodedFrm.get());
-            auto avFrame    = paPtrs->myFrm.get();
-            auto chunk      = std::make_shared<AudioChunk>();
-            chunk->pts      = avFrame->pts;
-            auto outBytes   = av_samples_get_buffer_size(nullptr, paudioInfo->channels,
-                avFrame->nb_samples, myResampler.toPackedFmt(paudioInfo->sampleFmt), 1);
-            auto outSamples = swr_get_delay(paPtrs->resamplerCtx.get(), paudioInfo->splRate)
-                + avFrame->nb_samples;
+            auto avFrame  = paPtrs->myFrm.get();
+            auto chunk    = std::make_shared<AudioChunk>();
+            chunk->pts    = avFrame->pts;
+            auto outBytes = av_samples_get_buffer_size(nullptr, audioInfo->channels,
+                avFrame->nb_samples, myResampler.toPackedFmt(audioInfo->sampleFmt), 1);
+            auto outSamples =
+                swr_get_delay(paPtrs->resamplerCtx.get(), audioInfo->splRate) + avFrame->nb_samples;
             chunk->pcm.resize(outBytes);
             if (paPtrs->myFrm.get()->data[1] != nullptr) {
                 uint8_t* out[1]       = { chunk->pcm.data() };
                 auto convertedSamples = swr_convert(paPtrs->resamplerCtx.get(), out, outSamples,
                     (const uint8_t**)paPtrs->myFrm->data, avFrame->nb_samples);
-                auto convertedBytes   = av_samples_get_buffer_size(nullptr, paudioInfo->channels,
-                    convertedSamples, myResampler.toPackedFmt(paudioInfo->sampleFmt), 1);
+                auto convertedBytes   = av_samples_get_buffer_size(nullptr, audioInfo->channels,
+                    convertedSamples, myResampler.toPackedFmt(audioInfo->sampleFmt), 1);
                 outBytes              = convertedBytes;
             } else {
                 chunk->pcm.assign(avFrame->data[0], avFrame->data[0] + outBytes);
@@ -190,26 +190,26 @@ private:
             emit chunkReady(chunk);
         }
     };
-    auto decode(PtrSet* pptrSet, MediaInfo* pmediaInfo) {
+    auto decode(PtrSet* ptrSet, MediaInfo* mediaInfo) {
         if (jump) {
             jump      = false;
-            auto aPts = newTime / (pmediaInfo->audioInfo.atimeBase);
-            auto vPts = newTime / (pmediaInfo->videoInfo.vtimeBase);
-            av_seek_frame(pptrSet->formatCtx.get(), pmediaInfo->audioInfo.asIndex, aPts,
-                AVSEEK_FLAG_BACKWARD);
-            avcodec_flush_buffers(pptrSet->aPtrs.decoderCtx.get());
-            av_seek_frame(pptrSet->formatCtx.get(), pmediaInfo->videoInfo.vsIndex, vPts,
-                AVSEEK_FLAG_BACKWARD);
-            avcodec_flush_buffers(pptrSet->vPtrs.decoderCtx.get());
+            auto aPts = newTime / (mediaInfo->audioInfo.atimeBase);
+            auto vPts = newTime / (mediaInfo->videoInfo.vtimeBase);
+            av_seek_frame(
+                ptrSet->formatCtx.get(), mediaInfo->audioInfo.asIndex, aPts, AVSEEK_FLAG_BACKWARD);
+            avcodec_flush_buffers(ptrSet->aPtrs.decoderCtx.get());
+            av_seek_frame(
+                ptrSet->formatCtx.get(), mediaInfo->videoInfo.vsIndex, vPts, AVSEEK_FLAG_BACKWARD);
+            avcodec_flush_buffers(ptrSet->vPtrs.decoderCtx.get());
         }
-        auto packets { pptrSet->packet.get() };
-        while (av_read_frame(pptrSet->formatCtx.get(), packets) >= 0) {
+        auto packets { ptrSet->packet.get() };
+        while (av_read_frame(ptrSet->formatCtx.get(), packets) >= 0) {
 
-            if (packets->stream_index == pmediaInfo->audioInfo.asIndex) {
-                decodeAudio(packets, &(pptrSet->aPtrs), &(pmediaInfo->audioInfo));
-            } else if (pptrSet->packet.get()->stream_index == pmediaInfo->videoInfo.vsIndex) {
+            if (packets->stream_index == mediaInfo->audioInfo.asIndex) {
+                decodeAudio(packets, &(ptrSet->aPtrs), &(mediaInfo->audioInfo));
+            } else if (ptrSet->packet.get()->stream_index == mediaInfo->videoInfo.vsIndex) {
 
-                decodeVideo(packets, &(pptrSet->vPtrs), &(pmediaInfo->videoInfo));
+                decodeVideo(packets, &(ptrSet->vPtrs), &(mediaInfo->videoInfo));
             }
         }
         av_packet_unref(packets);
@@ -223,11 +223,7 @@ public slots:
     }
 
 public:
-    DemuxerPlusDecoder(std::string pfilePath)
-        : filePath(std::move(pfilePath)) { };
+    DemuxerPlusDecoder(std::string filePath)
+        : filePath(std::move(filePath)) { };
     ~DemuxerPlusDecoder() { };
-    void toJump(double time) {
-        newTime = time;
-        jump    = true;
-    }
 };

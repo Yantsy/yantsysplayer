@@ -33,11 +33,11 @@ MyGLWidget::~MyGLWidget() {
     std::cout << "\n";
 }
 
-void MyGLWidget::renderWithOpenGL(uint8_t* Y, uint8_t* U, uint8_t* V, int& w, int& h, int& pstrideY,
-    int& pstrideU, int& pstrideV, const char& ppxFmt, int pdepth) noexcept { };
+void MyGLWidget::renderWithOpenGL(uint8_t* Y, uint8_t* U, uint8_t* V, int& w, int& h, int& strideY,
+    int& strideU, int& strideV, const char& pxFmt, int depth) noexcept { };
 
 void MyGLWidget::renderWithOpenGL8(uint8_t* Y, uint8_t* U, uint8_t* V, int& w, int& h, int& strideY,
-    int& strideU, int& strideV, const char& ppxFmt) noexcept {
+    int& strideU, int& strideV, const char& pxFmt) noexcept {
 
     // isTenbit = false;
     renderCount       = renderCount + 1;
@@ -45,7 +45,7 @@ void MyGLWidget::renderWithOpenGL8(uint8_t* Y, uint8_t* U, uint8_t* V, int& w, i
     imageHeight       = h;
     bool needRecreate = !m_textureY || !m_textureY->isCreated() || m_textureY->width() != w
         || m_textureY->height() != h;
-    switch (ppxFmt) {
+    switch (pxFmt) {
     case AV_PIX_FMT_YUV420P: {
         makeCurrent();
         // update textures
@@ -111,14 +111,14 @@ void MyGLWidget::renderWithOpenGL8(uint8_t* Y, uint8_t* U, uint8_t* V, int& w, i
     repaint();
 }
 void MyGLWidget::renderWithOpenGL10(uint8_t* Y, uint8_t* U, uint8_t* V, int& w, int& h,
-    int& strideY, int& strideU, int& strideV, const char& ppxFmt) noexcept {
+    int& strideY, int& strideU, int& strideV, const char& pxFmt) noexcept {
     isTenbit          = true;
     renderCount       = renderCount + 1;
     imageWidth        = w;
     imageHeight       = h;
     bool needRecreate = !m_textureY || !m_textureY->isCreated() || m_textureY->width() != w
         || m_textureY->height() != h;
-    switch (ppxFmt) {
+    switch (pxFmt) {
     case AV_PIX_FMT_YUV420P10LE: {
         makeCurrent();
         if (needRecreate) {
@@ -178,22 +178,22 @@ void MyGLWidget::renderWithOpenGL10(uint8_t* Y, uint8_t* U, uint8_t* V, int& w, 
     }
     repaint();
 }
-void MyGLWidget::getInfo(VideoInfo pvideoInfo) {
-    pxFmt    = pvideoInfo.pxFmt;
-    depth    = pvideoInfo.pxFmtDpth;
-    timeBase = pvideoInfo.vtimeBase;
+void MyGLWidget::getInfo(VideoInfo videoInfo) {
+    pxFmt    = videoInfo.pxFmt;
+    depth    = videoInfo.pxFmtDpth;
+    timeBase = videoInfo.vtimeBase;
 };
-void MyGLWidget::frameIn(std::shared_ptr<VideoFrame> pvideoFrame) {
-    latest = (pvideoFrame->pts) * timeBase;
+void MyGLWidget::frameIn(std::shared_ptr<VideoFrame> videoFrame) {
+    latest = (videoFrame->pts) * timeBase;
     emit progressChanged(latest);
     if (depth == 8) {
-        renderWithOpenGL8(pvideoFrame->y.data(), pvideoFrame->u.data(), pvideoFrame->v.data(),
-            pvideoFrame->width, pvideoFrame->height, pvideoFrame->linesize[0],
-            pvideoFrame->linesize[1], pvideoFrame->linesize[2], pxFmt);
+        renderWithOpenGL8(videoFrame->y.data(), videoFrame->u.data(), videoFrame->v.data(),
+            videoFrame->width, videoFrame->height, videoFrame->linesize[0], videoFrame->linesize[1],
+            videoFrame->linesize[2], pxFmt);
     } else if (depth == 10) {
-        renderWithOpenGL10(pvideoFrame->y.data(), pvideoFrame->u.data(), pvideoFrame->v.data(),
-            pvideoFrame->width, pvideoFrame->height, pvideoFrame->linesize[0],
-            pvideoFrame->linesize[1], pvideoFrame->linesize[2], pxFmt);
+        renderWithOpenGL10(videoFrame->y.data(), videoFrame->u.data(), videoFrame->v.data(),
+            videoFrame->width, videoFrame->height, videoFrame->linesize[0], videoFrame->linesize[1],
+            videoFrame->linesize[2], pxFmt);
     }
 };
 void MyGLWidget::initializeGL() {

@@ -161,3 +161,26 @@ struct Clock {
         return time.load(std::memory_order_relaxed);
     };
 };
+struct PlayerState {
+    // vars changed by different files
+    FmtCtxPtr formatCtx { nullptr };
+    DecCtxPtr videoDecCtx { nullptr };
+    DecCtxPtr audioDecCtx { nullptr };
+    SwrCtxPtr audioSwrCtx { nullptr };
+    PktPtr packet { nullptr };
+    MediaInfo mediaInfo;
+    // vars changed by different frames
+    FrmPtr audioBuffer { nullptr }; // container of the pointer to audio buffer
+    int audioBufferSize { 0 };
+    int audioBufferRemains { 0 };
+    FrmPtr videoBuffer { nullptr }; // container of the pointer to video buffer
+    int videoBufferSize { 0 };
+    int videoBufferRemains { 0 };
+    Clock audioClock, videoClock, exClock;
+    ChunkQueue chunkQueue;
+    FrameQueue frameQueue;
+    int serial { 0 };
+    auto update(PlayerState* is, int argum) {
+        if (argum == 0) { }
+    };
+};
