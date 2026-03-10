@@ -19,14 +19,18 @@ private:
     double timebase { 0.0 };
     std::chrono::steady_clock::time_point start;
     std::chrono::steady_clock::time_point update;
-    auto initialize(AudioInfo& paudioInfo) {
+    static void sdlCallBack(void* userdata, uint8_t* stream, int len) {
+        APtrSet* buffer = static_cast<APtrSet*>(userdata);
+    };
+    auto initialize(AudioInfo& paudioInfo, void* buffer) {
         MyResampler myResampler;
         wantedSpec.freq     = paudioInfo.splRate;
         wantedSpec.format   = myResampler.toSDLAudioFmt(paudioInfo.sampleFmt);
         wantedSpec.channels = paudioInfo.channels;
         wantedSpec.samples  = paudioInfo.samples;
         wantedSpec.silence  = paudioInfo.silence;
-        wantedSpec.callback = nullptr;
+        wantedSpec.callback = nullptr; // set nullptr for the push mode
+        wantedSpec.userdata = buffer;
         bytesPerSample      = av_get_bytes_per_sample(paudioInfo.sampleFmt);
         bytesPerSecond      = wantedSpec.freq * wantedSpec.channels * bytesPerSample;
         timebase            = paudioInfo.atimeBase;
@@ -37,7 +41,7 @@ private:
         }
         SDL_PauseAudioDevice(audioDevice, 0);
     };
-
+    // push mode
     auto playLoop(std::shared_ptr<AudioChunk> audioChunk) {
         SDL_QueueAudio(
             audioDevice, audioChunk.get()->pcm.data(), (Uint32)audioChunk.get()->pcm.size());
@@ -49,7 +53,7 @@ private:
     };
 public slots:
     void chunkIn(std::shared_ptr<AudioChunk> audioChunk) { playLoop(audioChunk); };
-    void getInfo(AudioInfo paudioInfo) { initialize(paudioInfo); };
+    void getInfo(AudioInfo paudioInfo, void* pbuffer) { initialize(paudioInfo, pbuffer); };
 
 public:
     MyAudioWidget() {

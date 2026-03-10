@@ -13,10 +13,6 @@
 #include <QPixmap>
 #include <QTimer>
 
-extern "C" {
-#include <libavutil/imgutils.h>
-}
-
 class MyGLWidget : public QOpenGLWidget, protected QOpenGLExtraFunctions {
     Q_OBJECT
 public:

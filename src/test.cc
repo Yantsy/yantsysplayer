@@ -24,15 +24,14 @@ int main(int argc, char* argv[]) {
     MyGLWidget videoWidget;
     yslider slider;
     slider.getpara(8, 8);
+    slider.setFixedHeight(10);
     slider.setgroovecolor(QColor(255, 255, 255));
     slider.settracecolor(QColor(51, 232, 219));
     slider.sethandelcolor(QColor(235, 88, 88));
     layout->addWidget(pickFileBtn);
     layout->addWidget(&videoWidget, 1);
-    slider.setParent(&videoWidget);
+    layout->addWidget(&slider, 1);
     window.resize(960, 640);
-    slider.resize(videoWidget.width() - 4, 10);
-    slider.move(2, videoWidget.height() - 2);
     window.show();
 
     bool isPlaying           = false;
@@ -83,8 +82,8 @@ int main(int argc, char* argv[]) {
             pickFileBtn->setText("获取文件");
             thread = nullptr;
         });
-        QObject::connect(
-            &slider, &yslider::dragStarted, demuxer, [&]() { demuxer->toJump(slider.tvalue); });
+        QObject::connect(&slider, &yslider::dragStarted, demuxer,
+            [demuxer, &slider]() { demuxer->toJump(slider.tvalue); });
 
         thread->start();
     });

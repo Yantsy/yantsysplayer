@@ -8,13 +8,13 @@ signals:
     void frameReady(std::shared_ptr<VideoFrame> videoFrame);
     void chunkReady(std::shared_ptr<AudioChunk> audioChunk);
     void sendVideoInfo(VideoInfo pvideoInfo);
-    void sendAudioInfo(AudioInfo paudioInfo);
+    void sendAudioInfo(AudioInfo paudioInfo, void* buffer);
     void durationChanged(double duration);
     void finished();
 
 private:
     std::string filePath;
-    Clock clock;
+    Clock audioClk, videoClk, exClk;
     std::chrono::steady_clock::time_point start;
     std::chrono::steady_clock::time_point update;
     int count { 0 };
@@ -93,7 +93,7 @@ private:
                 av_channel_layout_describe(&cdcPar->ch_layout, audioInfo.channelLayoutName,
                     sizeof(audioInfo.channelLayoutName));
                 std::cout << "Audio Stream Info Get\n";
-                emit sendAudioInfo(audioInfo);
+
             } else if (cdcPar->codec_type == AVMEDIA_TYPE_VIDEO) {
                 auto decCtx = avcodec_alloc_context3(decoder);
                 avcodec_parameters_to_context(decCtx, cdcPar);
@@ -132,6 +132,7 @@ private:
         ptrSet.packet.reset(packet);
         std::cout << "Contexts allocated\n";
         outputInfo(mediaInfo);
+        emit sendAudioInfo(audioInfo, &(ptrSet.aPtrs));
     }
 
     auto decodeVideo(AVPacket* ppacket, VPtrSet* pvPtrs, VideoInfo* pvideoInfo) {
@@ -167,11 +168,9 @@ private:
         while (avcodec_receive_frame(paPtrs->decoderCtx.get(), paPtrs->decodedFrm.get()) >= 0) {
             av_frame_ref(paPtrs->myFrm.get(), paPtrs->decodedFrm.get());
             av_frame_unref(paPtrs->decodedFrm.get());
-            auto avFrame = paPtrs->myFrm.get();
-            auto chunk   = std::make_shared<AudioChunk>();
-            chunk->pts   = avFrame->pts;
-            auto secs    = (chunk->pts) * (paudioInfo->atimeBase);
-            clock.update(secs);
+            auto avFrame    = paPtrs->myFrm.get();
+            auto chunk      = std::make_shared<AudioChunk>();
+            chunk->pts      = avFrame->pts;
             auto outBytes   = av_samples_get_buffer_size(nullptr, paudioInfo->channels,
                 avFrame->nb_samples, myResampler.toPackedFmt(paudioInfo->sampleFmt), 1);
             auto outSamples = swr_get_delay(paPtrs->resamplerCtx.get(), paudioInfo->splRate)
@@ -222,7 +221,6 @@ public slots:
         decode(&ptrSet, &mediaInfo);
         emit finished();
     }
-    void getAudioTime(double realDuration) { clock.update(realDuration); }
 
 public:
     DemuxerPlusDecoder(std::string pfilePath)

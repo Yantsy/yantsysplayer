@@ -48,7 +48,7 @@ void MyGLWidget::renderWithOpenGL8(uint8_t* Y, uint8_t* U, uint8_t* V, int& w, i
     switch (ppxFmt) {
     case AV_PIX_FMT_YUV420P: {
         makeCurrent();
-        // 更新纹理
+        // update textures
         if (needRecreate) {
 
             if (m_textureY) {
@@ -82,14 +82,13 @@ void MyGLWidget::renderWithOpenGL8(uint8_t* Y, uint8_t* U, uint8_t* V, int& w, i
             m_textureV->setMagnificationFilter(QOpenGLTexture::Linear);
             m_textureV->allocateStorage();
         }
-        // 处理linesize，如果不处理，读取数据的时候会出错,导致渲染出来的画面很奇怪,比如变成一堆竖线或者斜线...
         glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-        glPixelStorei(GL_UNPACK_ROW_LENGTH, strideY); // Y 平面的行长度
+        glPixelStorei(GL_UNPACK_ROW_LENGTH, strideY);
 
         m_textureY->bind();
         glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, w, h, GL_RED, GL_UNSIGNED_BYTE, Y);
 
-        glPixelStorei(GL_UNPACK_ROW_LENGTH, strideU); // UV 平面的行长度
+        glPixelStorei(GL_UNPACK_ROW_LENGTH, strideU);
 
         m_textureU->bind();
         glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, w / 2, h / 2, GL_RED, GL_UNSIGNED_BYTE, U);
@@ -110,7 +109,6 @@ void MyGLWidget::renderWithOpenGL8(uint8_t* Y, uint8_t* U, uint8_t* V, int& w, i
     }
 
     repaint();
-    // 使用 repaint() 强制立即重绘，而不是 update()
 }
 void MyGLWidget::renderWithOpenGL10(uint8_t* Y, uint8_t* U, uint8_t* V, int& w, int& h,
     int& strideY, int& strideU, int& strideV, const char& ppxFmt) noexcept {
@@ -123,7 +121,6 @@ void MyGLWidget::renderWithOpenGL10(uint8_t* Y, uint8_t* U, uint8_t* V, int& w, 
     switch (ppxFmt) {
     case AV_PIX_FMT_YUV420P10LE: {
         makeCurrent();
-        // 在必要时重新创建纹理并分配内存，一般不会触发，但是就怕万一
         if (needRecreate) {
 
             if (m_textureY) {
@@ -157,14 +154,14 @@ void MyGLWidget::renderWithOpenGL10(uint8_t* Y, uint8_t* U, uint8_t* V, int& w, 
             m_textureV->setMagnificationFilter(QOpenGLTexture::Linear);
             m_textureV->allocateStorage();
         }
-        // 处理linesize，如果不处理，读取数据的时候会出错,导致渲染出来的画面很奇怪
+        // dealing with linesize,ignorance of this step leads to strange pictures;
         glPixelStorei(GL_UNPACK_ALIGNMENT, 2);
-        glPixelStorei(GL_UNPACK_ROW_LENGTH, strideY / 2); // Y 平面的行长度
+        glPixelStorei(GL_UNPACK_ROW_LENGTH, strideY / 2);
 
         m_textureY->bind();
         glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, w, h, GL_RED, GL_UNSIGNED_SHORT, Y);
 
-        glPixelStorei(GL_UNPACK_ROW_LENGTH, strideU / 2); // UV 平面的行长度
+        glPixelStorei(GL_UNPACK_ROW_LENGTH, strideU / 2);
 
         m_textureU->bind();
         glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, w / 2, h / 2, GL_RED, GL_UNSIGNED_SHORT, U);
@@ -174,7 +171,6 @@ void MyGLWidget::renderWithOpenGL10(uint8_t* Y, uint8_t* U, uint8_t* V, int& w, 
         m_textureV->bind();
         glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, w / 2, h / 2, GL_RED, GL_UNSIGNED_SHORT, V);
 
-        // 重置
         glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
         glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
         doneCurrent();
@@ -201,9 +197,6 @@ void MyGLWidget::frameIn(std::shared_ptr<VideoFrame> pvideoFrame) {
     }
 };
 void MyGLWidget::initializeGL() {
-    // constexpr auto m_imageSource = ":/resources/aichan.jpg";
-    //  imageWidth = QImage(m_imageSource).width();
-    //  imageHeight = QImage(m_imageSource).height();
 
     const float m_vertices[] = { 1.0f, 1, 0.0f, 1.0f, 1.0f, 1.0f, -1, 0.0f, 1.0f, 0.0f, -1.0f, -1,
         0.0f, 0.0f, 0.0f, -1.0f, 1, 0.0f, 0.0f, 1.0f };
@@ -253,8 +246,6 @@ void MyGLWidget::initializeGL() {
     m_vbo0->bind();
     m_vbo0->allocate(m_vertices, sizeof(m_vertices));
 
-    /*const std::unique_ptr<QOpenGLBuffer> m_ebo0 =
-        std::make_unique<QOpenGLBuffer>(QOpenGLBuffer::IndexBuffer);*/
     auto m_ebo0 = new QOpenGLBuffer(QOpenGLBuffer::IndexBuffer);
     m_ebo0->create();
     m_ebo0->bind();
@@ -274,12 +265,6 @@ void MyGLWidget::initializeGL() {
     m_shaderProgram0->enableAttributeArray(0);
     m_shaderProgram0->setAttributeBuffer(1, GL_FLOAT, 3 * sizeof(float), 2, 5 * sizeof(float));
     m_shaderProgram0->enableAttributeArray(1);
-    // 造成内存泄露的罪魁祸首1，此时并没有分配GPU内存
-    // m_textureY = new QOpenGLTexture(QOpenGLTexture::Target2D);
-
-    // m_textureU = new QOpenGLTexture(m_imageSource, QOpenGLTexture::Target2D);
-
-    // m_textureV = new QOpenGLTexture(QOpenGLTexture::Target2D);
 
     m_vao0->release();
     m_shaderProgram0->release();
@@ -287,7 +272,6 @@ void MyGLWidget::initializeGL() {
 void MyGLWidget::resizeGL(const int w, const int h) { glViewport(0, 0, w, h); }
 void MyGLWidget::paintGL() {
     paintCount = paintCount + 1;
-    // 造成内存泄露的罪魁祸首2
     if (!m_textureY || !m_textureY->isCreated() || !m_textureU || !m_textureU->isCreated()
         || !m_textureV || !m_textureV->isCreated()) {
         return;
