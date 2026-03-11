@@ -39,9 +39,10 @@ int main(int argc, char* argv[]) {
     QPointer<QThread> thread = nullptr;
 
     QObject::connect(pickFileBtn, &QPushButton::clicked, &window, [&]() {
+        /*
         if (isPlaying || (thread && thread->isRunning())) {
             return;
-        }
+        }*/
 
         const QString filePath = QFileDialog::getOpenFileName(&window, "Open Media File", "");
         if (filePath.isEmpty()) {
@@ -49,13 +50,16 @@ int main(int argc, char* argv[]) {
         }
 
         isPlaying = true;
-        pickFileBtn->setEnabled(false);
+        // pickFileBtn->setEnabled(false);
         pickFileBtn->setText("播放中...");
 
         auto* audioWidget = new MyAudioWidget();
         thread            = new QThread(&window);
         auto* demuxer     = new DemuxerPlusDecoder(filePath.toStdString());
+        // add demuxer to main thread before the video is played
         demuxer->moveToThread(thread);
+        // link signals with slots to start the two threads
+        // while the video is playing
         QObject::connect(thread, &QThread::started, demuxer, &DemuxerPlusDecoder::processStart);
         QObject::connect(
             demuxer, &DemuxerPlusDecoder::durationChanged, &slider, &yslider::setMaximum);
@@ -68,12 +72,15 @@ int main(int argc, char* argv[]) {
         QObject::connect(&videoWidget, &MyGLWidget::progressChanged, &slider, &yslider::setValue);
         QObject::connect(
             demuxer, &DemuxerPlusDecoder::chunkReady, audioWidget, &MyAudioWidget::chunkIn);
-
+        // clear resources of the main thread when the sub thread is finished
+        // after the video is played
         QObject::connect(demuxer, &DemuxerPlusDecoder::finished, thread, &QThread::quit);
         QObject::connect(demuxer, &DemuxerPlusDecoder::finished, demuxer, &QObject::deleteLater);
         QObject::connect(
             demuxer, &DemuxerPlusDecoder::finished, audioWidget, &QObject::deleteLater);
         QObject::connect(thread, &QThread::finished, thread, &QObject::deleteLater);
+        // reset the button when the thread is finished(or say when the presentation of a video is
+        // finished),then you can choose a new video to restart the whole process above
         QObject::connect(thread, &QThread::finished, &window, [&]() {
             isPlaying = false;
             pickFileBtn->setEnabled(true);
@@ -83,7 +90,7 @@ int main(int argc, char* argv[]) {
 
         thread->start();
     });
-
+    // when the application is finished,or say when you close the main window,quit the main thread
     QObject::connect(&a, &QApplication::aboutToQuit, &window, [&]() {
         if (thread && thread->isRunning()) {
             thread->quit();

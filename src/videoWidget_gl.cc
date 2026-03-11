@@ -185,6 +185,8 @@ void MyGLWidget::getInfo(PlayerStatePtr is) {
     timeBase       = videoInfo.vtimeBase;
 };
 void MyGLWidget::frameIn(std::shared_ptr<VideoFrame> videoFrame) {
+    // compared to the audio playing process,this widget calls paint faster and has less delay,so I
+    // have the slider chase the video progress instead of the audio's.
     latest = (videoFrame->pts) * timeBase;
     emit progressChanged(latest);
     if (depth == 8) {

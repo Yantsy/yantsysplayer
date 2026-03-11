@@ -138,8 +138,9 @@ private:
         emit sendVideoInfo(is);
     }
 
-    auto decodeVideo(AVPacket* packet, PlayerStatePtr is) {
+    auto decodeVideo(PlayerStatePtr is) {
         auto decCtx = is->videoDecCtx.get();
+        auto packet = is->packet.get();
         avcodec_send_packet(decCtx, packet);
         av_packet_unref(packet);
         auto decodedFrm = is->decVideoFrm.get();
@@ -177,9 +178,10 @@ private:
             emit frameReady(frame);
         }
     };
-    auto decodeAudio(AVPacket* packet, PlayerStatePtr is) {
+    auto decodeAudio(PlayerStatePtr is) {
 
         auto decCtx = is->audioDecCtx.get();
+        auto packet = is->packet.get();
         avcodec_send_packet(decCtx, packet);
         av_packet_unref(packet);
         auto swrCtx     = is->audioSwrCtx.get();
@@ -229,9 +231,9 @@ private:
                 break;
             };
             if (packets->stream_index == is->mediaInfo.audioInfo.asIndex) {
-                decodeAudio(packets, is);
+                decodeAudio(is);
             } else if (packets->stream_index == is->mediaInfo.videoInfo.vsIndex) {
-                decodeVideo(packets, is);
+                decodeVideo(is);
             }
         }
         av_packet_unref(packets);
