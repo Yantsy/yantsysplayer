@@ -28,7 +28,7 @@ public:
     double latest { 0.0 };
 public slots:
     void frameIn(std::shared_ptr<VideoFrame> videoFrame);
-    void getInfo(VideoInfo videoInfo);
+    void getInfo(PlayerStatePtr is);
 
 protected:
     void initializeGL() override;

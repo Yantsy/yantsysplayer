@@ -16,6 +16,7 @@ int main(int argc, char* argv[]) {
     qRegisterMetaType<VideoInfo>("VideoInfo&");
     qRegisterMetaType<std::shared_ptr<VideoFrame>>("std::shared_ptr<VideoFrame>");
     qRegisterMetaType<std::shared_ptr<AudioChunk>>("std::shared_ptr<AudioChunk>");
+    qRegisterMetaType<PlayerStatePtr>("PlayerStatePtr");
     // ui
     QWidget window;
     window.setWindowTitle("Yantsys Player");

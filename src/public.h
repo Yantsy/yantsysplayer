@@ -117,7 +117,7 @@ struct VideoFrame {
     int width;
     int height;
     int64_t pts;
-    int linesize[3] { };
+    std::array<int, 3> linesize;
     std::vector<uint8_t> y;
     std::vector<uint8_t> u;
     std::vector<uint8_t> v;
@@ -170,17 +170,44 @@ struct PlayerState {
     PktPtr packet { nullptr };
     MediaInfo mediaInfo;
     // vars changed by different frames
-    FrmPtr audioBuffer { nullptr }; // container of the pointer to audio buffer
+    FrmPtr decAudioFrm { nullptr };
+    FrmPtr myAudioFrm { nullptr };
+    std::array<uint8_t*, 1> audioBuffer { }; // container of the pointer to audio buffer
     int audioBufferSize { 0 };
     int audioBufferRemains { 0 };
-    FrmPtr videoBuffer { nullptr }; // container of the pointer to video buffer
-    int videoBufferSize { 0 };
+    FrmPtr decVideoFrm { nullptr };
+    FrmPtr myVideoFrm { nullptr };
+    std::array<uint8_t*, 3> videoBufferHead { }; // container of the pointer to video buffer
+    std::array<int, 3> videoBufferSize { };
     int videoBufferRemains { 0 };
     Clock audioClock, videoClock, exClock;
     ChunkQueue chunkQueue;
     FrameQueue frameQueue;
     int serial { 0 };
-    auto update(PlayerState* is, int argum) {
-        if (argum == 0) { }
+    bool isplay { true };
+    bool topause { false };
+    bool aflush { false };
+    bool vflush { false };
+    bool toquit { false };
+    auto flusha() { aflush = true; };
+    auto flushv() { vflush = true; };
+    auto pause() { topause = true; };
+    auto quit() { toquit = true; }
+    auto update() {
+        if (topause || toquit) {
+            return -1;
+        };
+        return 0;
     };
+    auto audioUpdate() {
+        if (aflush == true) return -1;
+        return 0;
+    };
+    auto videoUpdate() {
+        if (vflush == true) return -1;
+        return 0;
+    }
 };
+
+using PlayerStatePtr = std::shared_ptr<PlayerState>;
+Q_DECLARE_METATYPE(PlayerStatePtr);

@@ -26,8 +26,9 @@ private:
         while (len > 0) { };
     };
     //
-    auto initialize(AudioInfo& audioInfo, void* buffer) {
+    auto initialize(PlayerStatePtr is) {
         MyResampler myResampler;
+        auto audioInfo      = is->mediaInfo.audioInfo;
         wantedSpec.freq     = audioInfo.splRate;
         wantedSpec.format   = myResampler.toSDLAudioFmt(audioInfo.sampleFmt);
         wantedSpec.channels = audioInfo.channels;
@@ -52,7 +53,7 @@ private:
     }; //
 public slots:
     void chunkIn(std::shared_ptr<AudioChunk> audioChunk) { playLoop(audioChunk); };
-    void getInfo(AudioInfo audioInfo, void* pbuffer) { initialize(audioInfo, pbuffer); };
+    void getInfo(PlayerStatePtr is) { initialize(is); };
 
 public:
     MyAudioWidget() {

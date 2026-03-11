@@ -178,10 +178,11 @@ void MyGLWidget::renderWithOpenGL10(uint8_t* Y, uint8_t* U, uint8_t* V, int& w, 
     }
     repaint();
 }
-void MyGLWidget::getInfo(VideoInfo videoInfo) {
-    pxFmt    = videoInfo.pxFmt;
-    depth    = videoInfo.pxFmtDpth;
-    timeBase = videoInfo.vtimeBase;
+void MyGLWidget::getInfo(PlayerStatePtr is) {
+    auto videoInfo = is->mediaInfo.videoInfo;
+    pxFmt          = videoInfo.pxFmt;
+    depth          = videoInfo.pxFmtDpth;
+    timeBase       = videoInfo.vtimeBase;
 };
 void MyGLWidget::frameIn(std::shared_ptr<VideoFrame> videoFrame) {
     latest = (videoFrame->pts) * timeBase;
