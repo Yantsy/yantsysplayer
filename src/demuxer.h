@@ -15,7 +15,7 @@ signals:
     void finished();
 
 private:
-    std::string filePath;
+    std::string file;
     Clock audioClk, videoClk, exClk;
     std::chrono::steady_clock::time_point start;
     std::chrono::steady_clock::time_point update;
@@ -241,14 +241,14 @@ private:
 
 public slots:
     void processStart() {
-        demux(filePath);
+        demux(file);
         decode(is);
         emit finished();
     }
     void quit() { is->quit(); }
 
 public:
-    DemuxerPlusDecoder(std::string filePath)
-        : filePath(std::move(filePath)) { };
+    DemuxerPlusDecoder() { };
     ~DemuxerPlusDecoder() { };
+    void open(std::string filePath) { file = std::move(filePath); };
 };

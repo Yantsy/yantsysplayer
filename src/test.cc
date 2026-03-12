@@ -35,15 +35,24 @@ int main(int argc, char* argv[]) {
     window.resize(960, 640);
     window.show();
 
-    bool isPlaying           = false;
-    QPointer<QThread> thread = nullptr;
+    bool isPlaying                       = false;
+    QPointer<QThread> thread             = nullptr;
+    QPointer<DemuxerPlusDecoder> demuxer = nullptr;
+    QPointer<MyAudioWidget> audioWidget  = nullptr;
 
     QObject::connect(pickFileBtn, &QPushButton::clicked, &window, [&]() {
         /*
         if (isPlaying || (thread && thread->isRunning())) {
             return;
-        }*/
 
+        }*/
+        if (isPlaying) {
+            isPlaying = false;
+            demuxer->quit();
+            demuxer->deleteLater();
+            thread->quit();
+            thread->wait();
+        };
         const QString filePath = QFileDialog::getOpenFileName(&window, "Open Media File", "");
         if (filePath.isEmpty()) {
             return;
@@ -53,9 +62,10 @@ int main(int argc, char* argv[]) {
         // pickFileBtn->setEnabled(false);
         pickFileBtn->setText("播放中...");
 
-        auto* audioWidget = new MyAudioWidget();
-        thread            = new QThread(&window);
-        auto* demuxer     = new DemuxerPlusDecoder(filePath.toStdString());
+        thread      = new QThread(&window);
+        audioWidget = new MyAudioWidget();
+        demuxer     = new DemuxerPlusDecoder();
+        demuxer->open(filePath.toStdString());
         // add demuxer to main thread before the video is played
         demuxer->moveToThread(thread);
         // link signals with slots to start the two threads
