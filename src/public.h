@@ -1,6 +1,7 @@
 #pragma once
 
 #include <chrono>
+#include <condition_variable>
 #include <cstdint>
 #include <memory>
 #include <queue>
@@ -13,6 +14,7 @@ extern "C" {
 #include <libavutil/avutil.h>
 #include <libavutil/channel_layout.h>
 #include <libavutil/imgutils.h>
+#include <libavutil/mathematics.h>
 #include <libavutil/pixdesc.h>
 #include <libavutil/samplefmt.h>
 #include <libavutil/time.h>
@@ -58,6 +60,7 @@ struct AudioInfo {
     int asIndex;
     char* adecoderName;
     double atimeBase;
+    AVRational timeBase;
     int samples { 1024 };
     int silence;
     int splRate;
@@ -76,6 +79,7 @@ struct VideoInfo {
     char* vdecoderName;
     int resolution[2];
     double vtimeBase;
+    AVRational timeBase;
     float vduration;
     AVPixelFormat pxFmt;
     char* pxFmtName;
@@ -86,26 +90,6 @@ struct MediaInfo {
     char* filePath;
     AudioInfo audioInfo;
     VideoInfo videoInfo;
-};
-
-struct VPtrSet {
-    DecCtxPtr decoderCtx { nullptr };
-    SwrCtxPtr resamplerCtx { nullptr };
-    FrmPtr decodedFrm { nullptr };
-    FrmPtr myFrm { nullptr };
-};
-struct APtrSet {
-    DecCtxPtr decoderCtx { nullptr };
-    SwrCtxPtr resamplerCtx { nullptr };
-    FrmPtr decodedFrm { nullptr };
-    FrmPtr myFrm { nullptr };
-};
-
-struct PtrSet {
-    FmtCtxPtr formatCtx { nullptr };
-    PktPtr packet { nullptr };
-    VPtrSet vPtrs { nullptr };
-    APtrSet aPtrs { nullptr };
 };
 
 struct AudioChunk {
@@ -184,17 +168,30 @@ struct PlayerState {
     ChunkQueue chunkQueue;
     FrameQueue frameQueue;
     int serial { 0 };
+    int64_t estAudioPTS { 0 };
+    int64_t audioPTS { 0 };
+    int64_t estVideoPTS { 0 };
+    int64_t videoPTS { 0 };
+    // double currentProgress { 0.0 };
+    bool progressChanged { false };
     bool isplay { true };
     bool topause { false };
+    std::mutex pasueMutex;
+    std::condition_variable pausecv;
     bool aflush { false };
     bool vflush { false };
     bool toquit { false };
     auto flusha() { aflush = true; };
     auto flushv() { vflush = true; };
+
     auto pause() { topause = true; };
+    auto play() {
+        topause = false;
+        pausecv.notify_all();
+    };
     auto quit() { toquit = true; }
     auto update() {
-        if (topause || toquit) {
+        if (toquit) {
             return -1;
         };
         return 0;

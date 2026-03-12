@@ -68,6 +68,7 @@ void yslider::mouseMoveEvent(QMouseEvent* event) {
     if (event->buttons() & Qt::LeftButton) {
 
         double tratio = (double)event->position().x() / (double)this->width();
+        tvalue        = tratio * maximum();
 
         setValue(tratio * maximum());
 
@@ -78,7 +79,13 @@ void yslider::mouseMoveEvent(QMouseEvent* event) {
 void yslider::mouseReleaseEvent(QMouseEvent* event) {
     dragging = false;
     emit dragFinished();
-    QAbstractSlider::mouseReleaseEvent(event);
+    // QAbstractSlider::mouseReleaseEvent(event);
+    double tratio = (double)event->position().x() / (double)this->width();
+    tvalue        = tratio * maximum();
+
+    setValue(tratio * maximum());
+
+    update();
 }
 
 void yslider::forward() {

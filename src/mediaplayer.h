@@ -11,11 +11,14 @@
 #include "videoWidget_gl.h"
 
 // resource management
-class MediaPlayer : public QObject {
+class MediaPlayer : public QWidget {
     Q_OBJECT
 private:
 public:
     MediaPlayer() { };
     ~MediaPlayer() { };
     auto play(const char* pFile) { }
+
+protected:
+    void closeEvent(QEvent* event) { }
 };

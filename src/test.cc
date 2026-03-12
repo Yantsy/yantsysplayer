@@ -22,6 +22,8 @@ int main(int argc, char* argv[]) {
     window.setWindowTitle("Yantsys Player");
     auto* layout      = new QVBoxLayout(&window);
     auto* pickFileBtn = new QPushButton("获取文件");
+    auto* play        = new QPushButton("Play");
+    play->setFixedWidth(30);
     MyGLWidget videoWidget;
     yslider slider;
     slider.getpara(8, 8);
@@ -32,6 +34,7 @@ int main(int argc, char* argv[]) {
     layout->addWidget(pickFileBtn);
     layout->addWidget(&videoWidget, 1);
     layout->addWidget(&slider, 1);
+    layout->addWidget(play, 1);
     window.resize(960, 640);
     window.show();
 
@@ -41,11 +44,7 @@ int main(int argc, char* argv[]) {
     QPointer<MyAudioWidget> audioWidget  = nullptr;
 
     QObject::connect(pickFileBtn, &QPushButton::clicked, &window, [&]() {
-        /*
-        if (isPlaying || (thread && thread->isRunning())) {
-            return;
-
-        }*/
+        // clear previous resources
         if (isPlaying) {
             isPlaying = false;
             demuxer->quit();
@@ -74,6 +73,8 @@ int main(int argc, char* argv[]) {
         QObject::connect(
             demuxer, &DemuxerPlusDecoder::durationChanged, &slider, &yslider::setMaximum);
         QObject::connect(
+            &slider, &yslider::dragFinished, [&]() { demuxer->progressChange(slider.tvalue); });
+        QObject::connect(
             demuxer, &DemuxerPlusDecoder::sendVideoInfo, &videoWidget, &MyGLWidget::getInfo);
         QObject::connect(
             demuxer, &DemuxerPlusDecoder::sendAudioInfo, audioWidget, &MyAudioWidget::getInfo);
@@ -82,22 +83,36 @@ int main(int argc, char* argv[]) {
         QObject::connect(&videoWidget, &MyGLWidget::progressChanged, &slider, &yslider::setValue);
         QObject::connect(
             demuxer, &DemuxerPlusDecoder::chunkReady, audioWidget, &MyAudioWidget::chunkIn);
-        // clear resources of the main thread when the sub thread is finished
-        // after the video is played
+        //  clear resources of the main thread when the sub thread is finished
+        //  after the video is played
         QObject::connect(demuxer, &DemuxerPlusDecoder::finished, thread, &QThread::quit);
         QObject::connect(demuxer, &DemuxerPlusDecoder::finished, demuxer, &QObject::deleteLater);
         QObject::connect(
             demuxer, &DemuxerPlusDecoder::finished, audioWidget, &QObject::deleteLater);
-        QObject::connect(thread, &QThread::finished, thread, &QObject::deleteLater);
         // reset the button when the thread is finished(or say when the presentation of a video is
-        // finished),then you can choose a new video to restart the whole process above
+        // finished),then you can choose a new video to restart the whole cycle
         QObject::connect(thread, &QThread::finished, &window, [&]() {
             isPlaying = false;
             pickFileBtn->setEnabled(true);
             pickFileBtn->setText("获取文件");
             thread = nullptr;
         });
-
+        QObject::connect(play, &QPushButton::clicked, [&]() {
+            if (isPlaying) {
+                isPlaying = false;
+                demuxer->pause();
+            } else {
+                isPlaying = true;
+                demuxer->play();
+            }
+        });
+        QObject::connect(&window, &QWidget::destroyed, [&]() {
+            if (demuxer && thread && thread->isRunning()) {
+                demuxer->quit();
+                thread->quit();
+                thread->wait(3000); // 最多等待3秒
+            }
+        });
         thread->start();
     });
     // when the application is finished,or say when you close the main window,quit the main thread

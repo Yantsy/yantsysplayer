@@ -26,6 +26,7 @@ private:
     MediaInfo mediaInfo;
     ChunkQueue chunks;
     MyResampler myResampler;
+    // tool functions
     auto outputInfo(MediaInfo& mediaInfo) {
         std::cout << "File Path: " << mediaInfo.filePath << "\n"
                   << "Stream [" << mediaInfo.videoInfo.vsIndex << "] Video\n"
@@ -48,6 +49,21 @@ private:
                   << std::flush;
         std::cout << " " << std::endl;
     };
+
+    auto seekFrame(PlayerStatePtr is) {
+        /*
+        int64_t seekTarget = av_rescale_q(is->estAudioPTS,
+            is->formatCtx->streams[is->mediaInfo.audioInfo.asIndex]->time_base, AV_TIME_BASE_Q);
+*/
+        av_seek_frame(is->formatCtx.get(), is->mediaInfo.videoInfo.vsIndex, is->estVideoPTS,
+            AVSEEK_FLAG_BACKWARD);
+        count = 0;
+        start = std::chrono::steady_clock::now();
+        avcodec_flush_buffers(is->audioDecCtx.get());
+        avcodec_flush_buffers(is->videoDecCtx.get());
+    }
+
+    // core functions
     auto demux(std::string filePath) {
         auto pFormatCtx = avformat_alloc_context();
         auto file       = filePath.c_str();
@@ -80,6 +96,7 @@ private:
                 mediaInfo.audioInfo.asIndex      = i;
                 mediaInfo.audioInfo.adecoderName = const_cast<char*>(decoder->name);
                 mediaInfo.audioInfo.atimeBase    = av_q2d(pFormatCtx->streams[i]->time_base);
+                mediaInfo.audioInfo.timeBase     = pFormatCtx->streams[i]->time_base;
                 mediaInfo.audioInfo.aduration    = duration;
                 mediaInfo.audioInfo.sampleFmt    = is->audioDecCtx->sample_fmt;
                 mediaInfo.audioInfo.splDepth =
@@ -174,8 +191,7 @@ private:
                 continue;
             }
             av_frame_unref(myFrm);
-
-            emit frameReady(frame);
+            if (!is->topause) emit frameReady(frame);
         }
     };
     auto decodeAudio(PlayerStatePtr is) {
@@ -219,17 +235,26 @@ private:
             is->audioBuffer     = outBuffer;
             is->audioBufferSize = outBytes;
             av_frame_unref(myFrm);
-            emit chunkReady(chunk);
+            if (!is->topause) {
+                emit chunkReady(chunk);
+            } else {
+                count = 0;
+            };
         }
     };
     auto decode(PlayerStatePtr is) {
         auto packets { is->packet.get() };
         while (is->update() == 0) {
+            if (is->progressChanged) {
+                is->progressChanged = false;
+                seekFrame(is);
+            }
             int ret = av_read_frame(is->formatCtx.get(), packets);
             if (ret == AVERROR_EOF) {
                 is->quit();
                 break;
             };
+
             if (packets->stream_index == is->mediaInfo.audioInfo.asIndex) {
                 decodeAudio(is);
             } else if (packets->stream_index == is->mediaInfo.videoInfo.vsIndex) {
@@ -245,6 +270,17 @@ public slots:
         decode(is);
         emit finished();
     }
+    void progressChange(double newProgress) {
+        is->progressChanged = true;
+        is->estAudioPTS     = (int64_t)(newProgress / (is->mediaInfo.audioInfo.atimeBase));
+        is->audioPTS =
+            av_rescale_q(is->estAudioPTS, is->mediaInfo.audioInfo.timeBase, AV_TIME_BASE_Q);
+        is->estVideoPTS = (int64_t)(newProgress / (is->mediaInfo.videoInfo.vtimeBase));
+        is->videoPTS =
+            av_rescale_q(is->estVideoPTS, is->mediaInfo.videoInfo.timeBase, AV_TIME_BASE_Q);
+    }
+    void pause() { is->pause(); };
+    void play() { is->play(); };
     void quit() { is->quit(); }
 
 public:

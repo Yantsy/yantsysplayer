@@ -21,7 +21,6 @@ private:
     std::chrono::steady_clock::time_point update;
     // pull mode
     static void sdlCallBack(void* userdata, uint8_t* stream, int len) {
-        APtrSet* buffer = static_cast<APtrSet*>(userdata);
         int audioSize, len1;
         while (len > 0) { };
     };
