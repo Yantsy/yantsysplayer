@@ -163,6 +163,7 @@ private:
         auto decodedFrm = is->decVideoFrm.get();
         auto myFrm      = is->myVideoFrm.get();
         while (is->videoUpdate() == 0) {
+
             int ret = avcodec_receive_frame(decCtx, decodedFrm);
             if (ret == AVERROR(EAGAIN)) {
                 break;
@@ -173,6 +174,7 @@ private:
             }
             av_frame_ref(myFrm, decodedFrm);
             av_frame_unref(decodedFrm);
+
             auto frame          = std::make_shared<VideoFrame>(myFrm);
             is->videoBufferHead = { frame->y.data(), frame->u.data(), frame->v.data() };
             is->videoBufferSize = frame->linesize;
@@ -204,6 +206,7 @@ private:
         auto decodedFrm = is->decAudioFrm.get();
         auto myFrm      = is->myAudioFrm.get();
         while (is->audioUpdate() == 0) {
+            // if (is->progressChanged || is->topause) return;
             int ret = avcodec_receive_frame(decCtx, decodedFrm);
             if (ret == AVERROR(EAGAIN)) {
                 break;
@@ -212,16 +215,19 @@ private:
                 is->flusha();
                 break;
             }
+
             av_frame_ref(myFrm, decodedFrm);
             av_frame_unref(decodedFrm);
-            auto chunk    = std::make_shared<AudioChunk>();
-            chunk->pts    = myFrm->pts;
+            // auto chunk    = std::make_shared<AudioChunk>();
+            AudioChunk chunk;
+            chunk.pts     = myFrm->pts;
             auto outBytes = av_samples_get_buffer_size(nullptr, mediaInfo.audioInfo.channels,
                 myFrm->nb_samples, myResampler.toPackedFmt(mediaInfo.audioInfo.sampleFmt), 1);
             auto outSamples =
                 swr_get_delay(swrCtx, mediaInfo.audioInfo.splRate) + myFrm->nb_samples;
-            chunk->pcm.resize(outBytes);
-            std::array<uint8_t*, 1> outBuffer { chunk->pcm.data() };
+            chunk.pcm.resize(outBytes);
+            std::array<uint8_t*, 1> outBuffer { chunk.pcm.data() };
+
             if (myFrm->data[1] != nullptr) {
                 auto convertedSamples = swr_convert(swrCtx, &outBuffer[0], outSamples,
                     (const uint8_t**)myFrm->data, myFrm->nb_samples);
@@ -230,16 +236,19 @@ private:
                     myResampler.toPackedFmt(mediaInfo.audioInfo.sampleFmt), 1);
                 outBytes              = convertedBytes;
             } else {
-                chunk->pcm.assign(myFrm->data[0], myFrm->data[0] + outBytes);
+                chunk.pcm.assign(myFrm->data[0], myFrm->data[0] + outBytes);
             }
-            is->audioBuffer     = outBuffer;
-            is->audioBufferSize = outBytes;
+            is->audioBuffer       = outBuffer;
+            chunk.audioBufferSize = outBytes;
+            is->chunks.push(std::move(chunk));
             av_frame_unref(myFrm);
+            /*
+            pause for the push mode
             if (!is->topause) {
                 emit chunkReady(chunk);
             } else {
                 count = 0;
-            };
+            };*/
         }
     };
     auto decode(PlayerStatePtr is) {
@@ -249,6 +258,7 @@ private:
                 is->progressChanged = false;
                 seekFrame(is);
             }
+
             int ret = av_read_frame(is->formatCtx.get(), packets);
             if (ret == AVERROR_EOF) {
                 is->quit();

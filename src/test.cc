@@ -51,6 +51,8 @@ int main(int argc, char* argv[]) {
             demuxer->deleteLater();
             thread->quit();
             thread->wait();
+            QObject::disconnect(play, &QPushButton::clicked, nullptr, nullptr);
+            QObject::disconnect(&slider, &yslider::dragFinished, nullptr, nullptr);
         };
         const QString filePath = QFileDialog::getOpenFileName(&window, "Open Media File", "");
         if (filePath.isEmpty()) {
@@ -81,8 +83,9 @@ int main(int argc, char* argv[]) {
         QObject::connect(
             demuxer, &DemuxerPlusDecoder::frameReady, &videoWidget, &MyGLWidget::frameIn);
         QObject::connect(&videoWidget, &MyGLWidget::progressChanged, &slider, &yslider::setValue);
+        /*
         QObject::connect(
-            demuxer, &DemuxerPlusDecoder::chunkReady, audioWidget, &MyAudioWidget::chunkIn);
+            demuxer, &DemuxerPlusDecoder::chunkReady, audioWidget, &MyAudioWidget::chunkIn);*/
         //  clear resources of the main thread when the sub thread is finished
         //  after the video is played
         QObject::connect(demuxer, &DemuxerPlusDecoder::finished, thread, &QThread::quit);

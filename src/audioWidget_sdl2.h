@@ -17,12 +17,44 @@ private:
     SDL_AudioDeviceID audioDevice;
     int bytesPerSample { 0 }, bytesPerSecond { 0 };
     double timebase { 0.0 };
+    bool pullmode { true }; // set pull mode the default and set it false for the push mode
     std::chrono::steady_clock::time_point start;
     std::chrono::steady_clock::time_point update;
     // pull mode
     static void sdlCallBack(void* userdata, uint8_t* stream, int len) {
-        int audioSize, len1;
-        while (len > 0) { };
+        PlayerState* is = static_cast<PlayerState*>(userdata);
+        // the job of callback function is to send data of len bytes from src of of audioBufferSize
+        // bytes to dst whose size is len bytes,too,and the key is that you have to always fill the
+        // stream and control how much you can fill it in one cycle
+
+        auto dst       = stream;
+        auto remaining = len; // remaining of dst
+        SDL_memset(dst, 0, remaining);
+
+        while (remaining > 0) {
+
+            auto& src           = is->chunks.front().pcm;
+            int audioBufferSize = is->chunks.front().audioBufferSize;
+            // the most you can get from src
+            int available = audioBufferSize - is->readPos;
+            // the account you copy from src
+            // if readPos(0)+len=remaining<available,then remaining-=tocopy=0,the cycle ends
+            // else readPos(0)+len=remaing>available,then remaining -=tocopy>0,you pop current chunk
+            // and enter the next cycle to get a new chunk,and send data from the new src to the new
+            // dst
+            int tocopy = std::min(available, remaining);
+            SDL_memcpy(dst, src.data() + is->readPos, tocopy);
+            is->readPos += tocopy;
+            dst += tocopy;
+            remaining -= tocopy;
+            if (is->readPos >= audioBufferSize) {
+                if (is->chunks.empty()) {
+                    return;
+                }
+                is->chunks.pop();
+                is->readPos = 0;
+            };
+        };
     };
     //
     auto initialize(PlayerStatePtr is) {
@@ -33,8 +65,12 @@ private:
         wantedSpec.channels = audioInfo.channels;
         wantedSpec.samples  = audioInfo.samples;
         wantedSpec.silence  = audioInfo.silence;
-        wantedSpec.callback = nullptr; // set nullptr if in push mode
-        // wantedSpec.userdata = buffer;
+        wantedSpec.callback = sdlCallBack; // set nullptr if in push mode
+        wantedSpec.userdata = is.get();
+        if (!pullmode) {
+            wantedSpec.callback = nullptr; // set nullptr if in push mode
+            wantedSpec.userdata = nullptr;
+        }
         bytesPerSample = av_get_bytes_per_sample(audioInfo.sampleFmt);
         bytesPerSecond = wantedSpec.freq * wantedSpec.channels * bytesPerSample;
         timebase       = audioInfo.atimeBase;

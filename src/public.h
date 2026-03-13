@@ -94,6 +94,7 @@ struct MediaInfo {
 
 struct AudioChunk {
     std::vector<uint8_t> pcm;
+    int audioBufferSize { 0 };
     int64_t pts;
 };
 Q_DECLARE_METATYPE(std::shared_ptr<AudioChunk>);
@@ -159,12 +160,14 @@ struct PlayerState {
     std::array<uint8_t*, 1> audioBuffer { }; // container of the pointer to audio buffer
     int audioBufferSize { 0 };
     int audioBufferRemains { 0 };
+    size_t readPos { 0 };
     FrmPtr decVideoFrm { nullptr };
     FrmPtr myVideoFrm { nullptr };
     std::array<uint8_t*, 3> videoBufferHead { }; // container of the pointer to video buffer
     std::array<int, 3> videoBufferSize { };
     int videoBufferRemains { 0 };
     Clock audioClock, videoClock, exClock;
+    std::queue<AudioChunk> chunks;
     ChunkQueue chunkQueue;
     FrameQueue frameQueue;
     int serial { 0 };
