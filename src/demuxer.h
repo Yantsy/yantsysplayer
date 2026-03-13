@@ -45,7 +45,8 @@ private:
                              ? mediaInfo.audioInfo.channelLayoutName
                              : std::to_string(mediaInfo.audioInfo.channels).c_str())
                   << "\n"
-                  << "____sample_format: " << mediaInfo.audioInfo.splFmtName << "\n"
+                  << "____sample_format: " << mediaInfo.audioInfo.splFmtName
+                  << "(depth:" << mediaInfo.audioInfo.splDepth * 8 << ")\n"
                   << std::flush;
         std::cout << " " << std::endl;
     };
@@ -64,7 +65,7 @@ private:
     }
 
     // core functions
-    auto demux(std::string filePath) {
+    auto demux(std::string& filePath) {
         auto pFormatCtx = avformat_alloc_context();
         auto file       = filePath.c_str();
         if (avformat_open_input(&pFormatCtx, file, nullptr, nullptr) != 0) {
@@ -127,7 +128,7 @@ private:
                 mediaInfo.videoInfo.pxFmtName =
                     const_cast<char*>(av_get_pix_fmt_name(mediaInfo.videoInfo.pxFmt));
                 const AVPixFmtDescriptor* pDesc = av_pix_fmt_desc_get(mediaInfo.videoInfo.pxFmt);
-                mediaInfo.videoInfo.pxFmtDpth   = pDesc->comp[1].depth;
+                mediaInfo.videoInfo.pxFmtDpth   = pDesc->comp[0].depth;
                 std::cout << "Video Stream Info Get\n";
             }
         }
@@ -176,7 +177,8 @@ private:
             av_frame_unref(decodedFrm);
 
             auto frame          = std::make_shared<VideoFrame>(myFrm);
-            is->videoBufferHead = { frame->y.data(), frame->u.data(), frame->v.data() };
+            is->videoBufferHead = { frame->frame.get()->data[0], frame->frame.get()->data[1],
+                frame->frame.get()->data[2] };
             is->videoBufferSize = frame->linesize;
 
             if (count == 0) {

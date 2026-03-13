@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <memory>
 #include <queue>
+#include <ranges>
 extern "C" {
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_audio.h>
@@ -98,7 +99,7 @@ struct AudioChunk {
     int64_t pts;
 };
 Q_DECLARE_METATYPE(std::shared_ptr<AudioChunk>);
-struct VideoFrame {
+struct VideoFrame0 {
     int width;
     int height;
     int64_t pts;
@@ -106,24 +107,37 @@ struct VideoFrame {
     std::vector<uint8_t> y;
     std::vector<uint8_t> u;
     std::vector<uint8_t> v;
-    VideoFrame(AVFrame* pframe) {
-        width  = pframe->width;
-        height = pframe->height;
-        pts    = pframe->pts;
-        for (auto& i : { 0, 1, 2 }) {
-            linesize[i] = std::abs(pframe->linesize[i]);
-        }
-        auto yH { height };
-        if ((yH & 1) == 1) {
-            yH += 1;
-        }
+    VideoFrame0(AVFrame* pframe)
+        : width(pframe->width)
+        , height(pframe->height)
+        , pts(pframe->pts) {
+        std::ranges::transform(std::views::iota(0, 3), linesize.begin(),
+            [pframe](int i) { return std::abs(pframe->linesize[i]); });
+        auto yH = ((height & 1) == 1) ? height + 1 : height;
         auto uH { yH / 2 }, vH { yH / 2 };
-        y.resize(linesize[0] * yH);
-        y.assign(pframe->data[0], pframe->data[0] + linesize[0] * yH);
+        y.resize(linesize[0] * height);
+        y.assign(pframe->data[0], pframe->data[0] + linesize[0] * height);
         u.resize(linesize[1] * uH);
         u.assign(pframe->data[1], pframe->data[1] + linesize[1] * uH);
         v.resize(linesize[2] * vH);
         v.assign(pframe->data[2], pframe->data[2] + linesize[2] * vH);
+    }
+};
+struct VideoFrame {
+    int width;
+    int height;
+    int64_t pts;
+    std::array<int, 3> linesize;
+    FrmPtr frame { nullptr };
+    VideoFrame(AVFrame* pframe)
+        : width(pframe->width)
+        , height(pframe->height)
+        , pts(pframe->pts) {
+        std::ranges::transform(std::views::iota(0, 3), linesize.begin(),
+            [pframe](int i) { return std::abs(pframe->linesize[i]); });
+        AVFrame* f = av_frame_alloc();
+        av_frame_ref(f, pframe);
+        frame.reset(f);
     }
 };
 Q_DECLARE_METATYPE(std::shared_ptr<VideoFrame>);

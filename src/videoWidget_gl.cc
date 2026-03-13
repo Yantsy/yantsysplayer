@@ -24,8 +24,7 @@ MyGLWidget::~MyGLWidget() {
     delete m_textureU;
     delete m_textureV;
     doneCurrent();
-    emit close();
-    for (const auto e : { "至", "是", "工", "程", "已", "毕", "，", "于", "斯", "合", "题" }) {
+    for (const auto& e : { "至", "是", "工", "程", "已", "毕", "，", "于", "斯", "合", "题" }) {
         std::cout << e << std::flush;
         using namespace std::chrono_literals;
         std::this_thread::sleep_for(100ms);
@@ -187,15 +186,16 @@ void MyGLWidget::getInfo(PlayerStatePtr is) {
 void MyGLWidget::frameIn(std::shared_ptr<VideoFrame> videoFrame) {
     // compared to the audio playing process,this widget calls paint faster and has less delay,so I
     // have the slider chase the video progress instead of the audio's.
-    latest = (videoFrame->pts) * timeBase;
+    latest     = (videoFrame->pts) * timeBase;
+    auto frame = videoFrame->frame.get();
     emit progressChanged(latest);
     if (depth == 8) {
-        renderWithOpenGL8(videoFrame->y.data(), videoFrame->u.data(), videoFrame->v.data(),
-            videoFrame->width, videoFrame->height, videoFrame->linesize[0], videoFrame->linesize[1],
+        renderWithOpenGL8(frame->data[0], frame->data[1], frame->data[2], videoFrame->width,
+            videoFrame->height, videoFrame->linesize[0], videoFrame->linesize[1],
             videoFrame->linesize[2], pxFmt);
     } else if (depth == 10) {
-        renderWithOpenGL10(videoFrame->y.data(), videoFrame->u.data(), videoFrame->v.data(),
-            videoFrame->width, videoFrame->height, videoFrame->linesize[0], videoFrame->linesize[1],
+        renderWithOpenGL10(frame->data[0], frame->data[1], frame->data[2], videoFrame->width,
+            videoFrame->height, videoFrame->linesize[0], videoFrame->linesize[1],
             videoFrame->linesize[2], pxFmt);
     }
 };
