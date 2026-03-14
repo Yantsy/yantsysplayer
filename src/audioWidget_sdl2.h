@@ -4,7 +4,6 @@ extern "C" {
 
 #include <libswresample/swresample.h>
 }
-#include "buffer.h"
 #include "public.h"
 #include "resampler.h"
 class MyAudioWidget : public QObject {
@@ -22,16 +21,19 @@ private:
     std::chrono::steady_clock::time_point update;
     // pull mode
     static void sdlCallBack(void* userdata, uint8_t* stream, int len) {
-        PlayerState* is = static_cast<PlayerState*>(userdata);
+        // fill len bytes 0 in to stream to make sure that it is always fully filled
+        SDL_memset(stream, 0, len);
+        if (userdata == nullptr) return;
+        auto is = static_cast<PlayerState*>(userdata);
         // the job of callback function is to send data of len bytes from src of of audioBufferSize
         // bytes to dst whose size is len bytes,too,and the key is that you have to always fill the
         // stream and control how much you can fill it in one cycle
 
         auto dst       = stream;
         auto remaining = len; // remaining of dst
-        SDL_memset(dst, 0, remaining);
 
-        while (remaining > 0) {
+        while (remaining > 0 && is != nullptr) {
+            if (is->chunks.empty()) break;
 
             auto& src           = is->chunks.front().pcm;
             int audioBufferSize = is->chunks.front().audioBufferSize;
@@ -48,9 +50,6 @@ private:
             dst += tocopy;
             remaining -= tocopy;
             if (is->readPos >= audioBufferSize) {
-                if (is->chunks.empty()) {
-                    return;
-                }
                 is->chunks.pop();
                 is->readPos = 0;
             };
@@ -99,4 +98,18 @@ public:
     };
 
     ~MyAudioWidget() { SDL_Quit(); };
+    void pause() { SDL_PauseAudioDevice(audioDevice, 1); }
+    void play() { SDL_PauseAudioDevice(audioDevice, 0); }
+    void quit() {
+        SDL_PauseAudioDevice(audioDevice, 1);
+        SDL_CloseAudioDevice(audioDevice);
+    }
 };
+
+/*
+pushmode:feed data to SDL_QueuedAudio,so you don't have to know whether there are data in the
+queue,you only need to control the decodeAudio and the chunkReady signal
+
+pullmode:the device asks for data ,so you don't need to know whether the decodeAudio is working now
+as long as the queue is not empty,instead you control the state of device.
+*/

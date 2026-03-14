@@ -1,5 +1,8 @@
 #include "QFileDialog"
-#include "mediaplayer.h"
+
+#include "demuxer.h"
+#include "public.h"
+#include "videoWidget_gl.h"
 #include "yslider.h"
 #include <QApplication>
 #include <QObject>
@@ -8,6 +11,8 @@
 #include <QThread>
 #include <QVBoxLayout>
 #include <QWidget>
+
+#include "audioWidget_sdl2.h"
 
 int main(int argc, char* argv[]) {
     QApplication a(argc, argv);
@@ -47,6 +52,7 @@ int main(int argc, char* argv[]) {
         // clear previous resources
         if (isPlaying) {
             isPlaying = false;
+            audioWidget->quit();
             demuxer->quit();
             demuxer->deleteLater();
             thread->quit();
@@ -104,9 +110,11 @@ int main(int argc, char* argv[]) {
             if (isPlaying) {
                 isPlaying = false;
                 demuxer->pause();
+                audioWidget->pause();
             } else {
                 isPlaying = true;
                 demuxer->play();
+                audioWidget->play();
             }
         });
         QObject::connect(&window, &QWidget::destroyed, [&]() {
