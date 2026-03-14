@@ -53,6 +53,7 @@ int main(int argc, char* argv[]) {
         if (isPlaying) {
             isPlaying = false;
             audioWidget->quit();
+            videoWidget.quit();
             demuxer->quit();
             demuxer->deleteLater();
             thread->quit();

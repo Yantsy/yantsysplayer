@@ -199,6 +199,11 @@ void MyGLWidget::frameIn(std::shared_ptr<VideoFrame> videoFrame) {
             videoFrame->linesize[2], pxFmt);
     }
 };
+
+void MyGLWidget::quit() {
+    glClear(GL_COLOR_BUFFER_BIT);
+    glClearColor(0.06275f, 0.06275f, 0.06275f, 1.0f);
+}
 void MyGLWidget::initializeGL() {
 
     const float m_vertices[] = { 1.0f, 1, 0.0f, 1.0f, 1.0f, 1.0f, -1, 0.0f, 1.0f, 0.0f, -1.0f, -1,

@@ -26,6 +26,7 @@ public:
     void renderWithOpenGL10(uint8_t* Y, uint8_t* U, uint8_t* V, int& w, int& h, int& strideY,
         int& strideU, int& strideV, const char& pxFmt) noexcept;
     double latest { 0.0 };
+    void quit();
 public slots:
     void frameIn(std::shared_ptr<VideoFrame> videoFrame);
     void getInfo(PlayerStatePtr is);
