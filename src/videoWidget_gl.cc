@@ -206,7 +206,7 @@ void MyGLWidget::initializeGL() {
 
     const unsigned int m_indices[] = { 0, 1, 2, 0, 2, 3 };
 
-    const auto m_vertexShaderSource   = R"(
+    constexpr auto m_vertexShaderSource   = R"(
   #version 330 core 
   layout (location =0) in vec3 aPos;
   layout (location =1) in vec2 aTexCoord;
@@ -215,7 +215,7 @@ void MyGLWidget::initializeGL() {
   void main(){
   gl_Position =transform*vec4(aPos,1.0);
   TexCoord =aTexCoord;})";
-    const auto m_fragmentShaderSource = R"(
+    constexpr auto m_fragmentShaderSource = R"(
   #version 330 core
   out vec4 FragColor;
   in vec2 TexCoord;

@@ -74,6 +74,9 @@ private:
         if (avformat_find_stream_info(pFormatCtx, nullptr) != 0) {
             std::cerr << "Can't find video stream info\n" << std::flush;
         }
+        auto asi = av_find_best_stream(pFormatCtx, AVMEDIA_TYPE_AUDIO, -1, -1, NULL, 0);
+        auto vsi = av_find_best_stream(pFormatCtx, AVMEDIA_TYPE_VIDEO, -1, -1, NULL, 0);
+        auto ssi = av_find_best_stream(pFormatCtx, AVMEDIA_TYPE_SUBTITLE, -1, -1, NULL, 0);
         for (int i = 0; i < pFormatCtx->nb_streams; i++) {
             const auto cdcPar   = pFormatCtx->streams[i]->codecpar;
             const auto* decoder = avcodec_find_decoder(cdcPar->codec_id);
@@ -89,7 +92,7 @@ private:
             if (duration <= 0.0f) {
                 duration = containerDuration / 1000 / base;
             };
-            if (cdcPar->codec_type == AVMEDIA_TYPE_AUDIO) {
+            if (i == asi) {
                 auto decCtx = avcodec_alloc_context3(decoder);
                 avcodec_parameters_to_context(decCtx, cdcPar);
                 avcodec_open2(decCtx, decoder, nullptr);
@@ -112,7 +115,7 @@ private:
                     sizeof(mediaInfo.audioInfo.channelLayoutName));
                 std::cout << "Audio Stream Info Get\n";
 
-            } else if (cdcPar->codec_type == AVMEDIA_TYPE_VIDEO) {
+            } else if (i == vsi) {
                 auto decCtx = avcodec_alloc_context3(decoder);
                 avcodec_parameters_to_context(decCtx, cdcPar);
                 avcodec_open2(decCtx, decoder, nullptr);
