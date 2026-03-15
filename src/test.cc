@@ -24,37 +24,39 @@ int main(int argc, char* argv[]) {
     qRegisterMetaType<PlayerStatePtr>("PlayerStatePtr");
     // ui
     QWidget window;
-    window.setWindowTitle("Yantsys Player");
+    window.setWindowTitle("Yantsy's Player");
     auto* layout      = new QVBoxLayout(&window);
     auto* pickFileBtn = new QPushButton("获取文件");
     auto* play        = new QPushButton("Play");
     play->setFixedWidth(30);
-    MyGLWidget videoWidget;
+
     yslider slider;
+    MyGLWidget videoWidget;
     slider.getpara(8, 8);
     slider.setFixedHeight(10);
     slider.setgroovecolor(QColor(255, 255, 255));
     slider.settracecolor(QColor(51, 232, 219));
     slider.sethandelcolor(QColor(235, 88, 88));
     layout->addWidget(pickFileBtn);
-    layout->addWidget(&videoWidget, 1);
+    layout->addWidget(&videoWidget);
     layout->addWidget(&slider, 1);
     layout->addWidget(play, 1);
     window.resize(960, 640);
     window.show();
 
     bool isPlaying                       = false;
+    bool hasVideo                        = false;
     QPointer<QThread> thread             = nullptr;
     QPointer<DemuxerPlusDecoder> demuxer = nullptr;
     QPointer<MyAudioWidget> audioWidget  = nullptr;
 
     QObject::connect(pickFileBtn, &QPushButton::clicked, &window, [&]() {
         // clear previous resources
-        if (isPlaying) {
-            isPlaying = false;
+        if (hasVideo) {
+            hasVideo = false;
             audioWidget->quit();
-            videoWidget.quit();
             demuxer->quit();
+            videoWidget.quit();
             demuxer->deleteLater();
             thread->quit();
             thread->wait();
@@ -65,7 +67,7 @@ int main(int argc, char* argv[]) {
         if (filePath.isEmpty()) {
             return;
         }
-
+        hasVideo  = true;
         isPlaying = true;
         // pickFileBtn->setEnabled(false);
         pickFileBtn->setText("播放中...");
@@ -103,6 +105,7 @@ int main(int argc, char* argv[]) {
         // finished),then you can choose a new video to restart the whole cycle
         QObject::connect(thread, &QThread::finished, &window, [&]() {
             isPlaying = false;
+            hasVideo  = false;
             pickFileBtn->setEnabled(true);
             pickFileBtn->setText("获取文件");
             thread = nullptr;
@@ -118,13 +121,17 @@ int main(int argc, char* argv[]) {
                 audioWidget->play();
             }
         });
-        QObject::connect(&window, &QWidget::destroyed, [&]() {
+        /*
+        QObject::connect(&videoWidget, &MyGLWidget::close, [&]() {
             if (demuxer && thread && thread->isRunning()) {
+                audioWidget->quit();
+                delete audioWidget;
+                // videoWidget.quit();
                 demuxer->quit();
                 thread->quit();
                 thread->wait(3000); // 最多等待3秒
             }
-        });
+        });*/
         thread->start();
     });
     // when the application is finished,or say when you close the main window,quit the main thread

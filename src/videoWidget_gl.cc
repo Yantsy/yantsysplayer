@@ -11,6 +11,7 @@ MyGLWidget::MyGLWidget(QWidget* parent) noexcept
 }
 
 MyGLWidget::~MyGLWidget() {
+    emit close();
     makeCurrent();
     delete m_vao0;
     delete m_vao1;
@@ -33,150 +34,73 @@ MyGLWidget::~MyGLWidget() {
 }
 
 void MyGLWidget::renderWithOpenGL(uint8_t* Y, uint8_t* U, uint8_t* V, int& w, int& h, int& strideY,
-    int& strideU, int& strideV, const char& pxFmt, int depth) noexcept { };
-
-void MyGLWidget::renderWithOpenGL8(uint8_t* Y, uint8_t* U, uint8_t* V, int& w, int& h, int& strideY,
-    int& strideU, int& strideV, const char& pxFmt) noexcept {
-
-    // isTenbit = false;
-    renderCount       = renderCount + 1;
-    imageWidth        = w;
-    imageHeight       = h;
-    bool needRecreate = !m_textureY || !m_textureY->isCreated() || m_textureY->width() != w
-        || m_textureY->height() != h;
-    switch (pxFmt) {
-    case AV_PIX_FMT_YUV420P: {
-        makeCurrent();
-        // update textures
-        if (needRecreate) {
-
-            if (m_textureY) {
-                m_textureY->destroy();
-            } else {
-                m_textureY = new QOpenGLTexture(QOpenGLTexture::Target2D);
-            }
-            m_textureY->setSize(imageWidth, imageHeight);
-            m_textureY->setFormat(QOpenGLTexture::R8_UNorm);
-            m_textureY->setMinificationFilter(QOpenGLTexture::LinearMipMapLinear);
-            m_textureY->setMagnificationFilter(QOpenGLTexture::Linear);
-            m_textureY->allocateStorage();
-            if (m_textureU) {
-                m_textureU->destroy();
-            } else {
-                m_textureU = new QOpenGLTexture(QOpenGLTexture::Target2D);
-            }
-            m_textureU->setSize(imageWidth / 2, imageHeight / 2);
-            m_textureU->setFormat(QOpenGLTexture::R8_UNorm);
-            m_textureU->setMinificationFilter(QOpenGLTexture::LinearMipMapLinear);
-            m_textureU->setMagnificationFilter(QOpenGLTexture::Linear);
-            m_textureU->allocateStorage();
-            if (m_textureV) {
-                m_textureV->destroy();
-            } else {
-                m_textureV = new QOpenGLTexture(QOpenGLTexture::Target2D);
-            }
-            m_textureV->setSize(imageWidth / 2, imageHeight / 2);
-            m_textureV->setFormat(QOpenGLTexture::R8_UNorm);
-            m_textureV->setMinificationFilter(QOpenGLTexture::LinearMipMapLinear);
-            m_textureV->setMagnificationFilter(QOpenGLTexture::Linear);
-            m_textureV->allocateStorage();
-        }
-        glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-        glPixelStorei(GL_UNPACK_ROW_LENGTH, strideY);
-
-        m_textureY->bind();
-        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, w, h, GL_RED, GL_UNSIGNED_BYTE, Y);
-
-        glPixelStorei(GL_UNPACK_ROW_LENGTH, strideU);
-
-        m_textureU->bind();
-        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, w / 2, h / 2, GL_RED, GL_UNSIGNED_BYTE, U);
-
-        glPixelStorei(GL_UNPACK_ROW_LENGTH, strideV);
-
-        m_textureV->bind();
-        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, w / 2, h / 2, GL_RED, GL_UNSIGNED_BYTE, V);
-
-        // 重置
-        glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
-
-        doneCurrent();
-    } break;
-    case AV_PIX_FMT_YUV420P10LE: {
-
-    } break;
+    int& strideU, int& strideV, const char& pxFmt, int& newdepth) noexcept {
+    float diff[2] = { w - imageWidth, h - imageHeight };
+    imageWidth += diff[0];
+    imageHeight += diff[1];
+    GLint alignment { 1 };
+    GLenum type { GL_UNSIGNED_BYTE };
+    auto format = QOpenGLTexture::R8_UNorm;
+    if (newdepth > 8) {
+        oneByte = false;
+        format  = QOpenGLTexture::R16_UNorm;
+        alignment += 1;
+        type   = GL_UNSIGNED_SHORT;
+        adjust = adjustC(newdepth, 16);
+    } else {
+        oneByte = true;
+        adjust  = 0;
+    };
+    makeCurrent();
+    if (!oneByte || diff[0] != 0 || diff[1] != 0 || !m_textureY || !m_textureY->isCreated()) {
+        updateTexture(m_textureY, imageWidth, imageHeight, format);
+        updateTexture(m_textureU, imageWidth / 2, imageHeight / 2, format);
+        updateTexture(m_textureV, imageWidth / 2, imageHeight / 2, format);
     }
+    glPixelStorei(GL_UNPACK_ALIGNMENT, alignment);
 
+    glPixelStorei(GL_UNPACK_ROW_LENGTH, strideY / alignment);
+    m_textureY->bind();
+    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, imageWidth, imageHeight, GL_RED, type, Y);
+
+    glPixelStorei(GL_UNPACK_ROW_LENGTH, strideU / alignment);
+    m_textureU->bind();
+    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, imageWidth / 2, imageHeight / 2, GL_RED, type, U);
+
+    glPixelStorei(GL_UNPACK_ROW_LENGTH, strideV / alignment);
+    m_textureV->bind();
+    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, imageWidth / 2, imageHeight / 2, GL_RED, type, V);
+
+    doneCurrent();
     repaint();
-}
-void MyGLWidget::renderWithOpenGL10(uint8_t* Y, uint8_t* U, uint8_t* V, int& w, int& h,
-    int& strideY, int& strideU, int& strideV, const char& pxFmt) noexcept {
-    isTenbit          = true;
-    renderCount       = renderCount + 1;
-    imageWidth        = w;
-    imageHeight       = h;
-    bool needRecreate = !m_textureY || !m_textureY->isCreated() || m_textureY->width() != w
-        || m_textureY->height() != h;
-    switch (pxFmt) {
-    case AV_PIX_FMT_YUV420P10LE: {
-        makeCurrent();
-        if (needRecreate) {
+};
 
-            if (m_textureY) {
-                m_textureY->destroy();
-            } else {
-                m_textureY = new QOpenGLTexture(QOpenGLTexture::Target2D);
-            }
-            m_textureY->setSize(imageWidth, imageHeight);
-            m_textureY->setFormat(QOpenGLTexture::R16_UNorm);
-            m_textureY->setMinificationFilter(QOpenGLTexture::LinearMipMapLinear);
-            m_textureY->setMagnificationFilter(QOpenGLTexture::Linear);
-            m_textureY->allocateStorage();
-            if (m_textureU) {
-                m_textureU->destroy();
-            } else {
-                m_textureU = new QOpenGLTexture(QOpenGLTexture::Target2D);
-            }
-            m_textureU->setSize(imageWidth / 2, imageHeight / 2);
-            m_textureU->setFormat(QOpenGLTexture::R16_UNorm);
-            m_textureU->setMinificationFilter(QOpenGLTexture::LinearMipMapLinear);
-            m_textureU->setMagnificationFilter(QOpenGLTexture::Linear);
-            m_textureU->allocateStorage();
-            if (m_textureV) {
-                m_textureV->destroy();
-            } else {
-                m_textureV = new QOpenGLTexture(QOpenGLTexture::Target2D);
-            }
-            m_textureV->setSize(imageWidth / 2, imageHeight / 2);
-            m_textureV->setFormat(QOpenGLTexture::R16_UNorm);
-            m_textureV->setMinificationFilter(QOpenGLTexture::LinearMipMapLinear);
-            m_textureV->setMagnificationFilter(QOpenGLTexture::Linear);
-            m_textureV->allocateStorage();
-        }
-        // dealing with linesize,ignorance of this step leads to strange pictures;
-        glPixelStorei(GL_UNPACK_ALIGNMENT, 2);
-        glPixelStorei(GL_UNPACK_ROW_LENGTH, strideY / 2);
+bool MyGLWidget::needupdate() {
+    bool update;
+    return update;
+};
+float MyGLWidget::adjustC(int orig, int inbuffer) {
+    float a = (1 << orig) - 1;
+    float b = (1 << inbuffer) - 1;
+    return b / a;
+};
 
-        m_textureY->bind();
-        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, w, h, GL_RED, GL_UNSIGNED_SHORT, Y);
-
-        glPixelStorei(GL_UNPACK_ROW_LENGTH, strideU / 2);
-
-        m_textureU->bind();
-        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, w / 2, h / 2, GL_RED, GL_UNSIGNED_SHORT, U);
-
-        glPixelStorei(GL_UNPACK_ROW_LENGTH, strideV / 2);
-
-        m_textureV->bind();
-        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, w / 2, h / 2, GL_RED, GL_UNSIGNED_SHORT, V);
-
-        glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
-        glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-        doneCurrent();
-    } break;
+void MyGLWidget::updateTexture(
+    QOpenGLTexture*& texture, float w, float h, QOpenGLTexture::TextureFormat format) {
+    if (texture) {
+        texture->destroy();
+    } else {
+        texture = new QOpenGLTexture(QOpenGLTexture::Target2D);
     }
-    repaint();
-}
+    texture->setSize(w, h);
+    texture->setFormat(format);
+    texture->setMinificationFilter(QOpenGLTexture::LinearMipMapLinear);
+    texture->setMagnificationFilter(QOpenGLTexture::Linear);
+    texture->allocateStorage();
+};
+
+void MyGLWidget::sendTexture(QOpenGLTexture* texture) { texture->bind(); }
+
 void MyGLWidget::getInfo(PlayerStatePtr is) {
     auto videoInfo = is->mediaInfo.videoInfo;
     pxFmt          = videoInfo.pxFmt;
@@ -189,20 +113,29 @@ void MyGLWidget::frameIn(std::shared_ptr<VideoFrame> videoFrame) {
     latest     = (videoFrame->pts) * timeBase;
     auto frame = videoFrame->frame.get();
     emit progressChanged(latest);
-    if (depth == 8) {
-        renderWithOpenGL8(frame->data[0], frame->data[1], frame->data[2], videoFrame->width,
-            videoFrame->height, videoFrame->linesize[0], videoFrame->linesize[1],
-            videoFrame->linesize[2], pxFmt);
-    } else if (depth == 10) {
-        renderWithOpenGL10(frame->data[0], frame->data[1], frame->data[2], videoFrame->width,
-            videoFrame->height, videoFrame->linesize[0], videoFrame->linesize[1],
-            videoFrame->linesize[2], pxFmt);
-    }
+    renderWithOpenGL(frame->data[0], frame->data[1], frame->data[2], videoFrame->width,
+        videoFrame->height, videoFrame->linesize[0], videoFrame->linesize[1],
+        videoFrame->linesize[2], pxFmt, depth);
+    /*
+if (depth == 8) {
+    renderWithOpenGL8(frame->data[0], frame->data[1], frame->data[2], videoFrame->width,
+        videoFrame->height, videoFrame->linesize[0], videoFrame->linesize[1],
+        videoFrame->linesize[2], pxFmt);
+} else if (depth == 10) {
+    renderWithOpenGL10(frame->data[0], frame->data[1], frame->data[2], videoFrame->width,
+        videoFrame->height, videoFrame->linesize[0], videoFrame->linesize[1],
+        videoFrame->linesize[2], pxFmt);
+}*/
 };
 
 void MyGLWidget::quit() {
+    makeCurrent();
     glClear(GL_COLOR_BUFFER_BIT);
     glClearColor(0.06275f, 0.06275f, 0.06275f, 1.0f);
+    if (m_textureY) m_textureY->destroy();
+    if (m_textureU) m_textureU->destroy();
+    if (m_textureV) m_textureV->destroy();
+    doneCurrent();
 }
 void MyGLWidget::initializeGL() {
 
@@ -227,15 +160,16 @@ void MyGLWidget::initializeGL() {
   uniform sampler2D textureY;
   uniform sampler2D textureU;
   uniform sampler2D textureV;
-  uniform bool is10bit;
+  uniform bool oneByte;
+  uniform int adjust;
   void main(){
   float y = texture(textureY, TexCoord).r;
   float u =texture(textureU, TexCoord).r;
   float v =texture(textureV, TexCoord).r;
-  if(is10bit){
-  y=y*64;
-  u=u*64;
-  v=v*64;}
+  if(!oneByte){
+  y=y*adjust;
+  u=u*adjust;
+  v=v*adjust;}
   u=u-0.5;
   v=v-0.5;
   float r=y+1.402*v;
@@ -295,7 +229,8 @@ void MyGLWidget::paintGL() {
     m_shaderProgram0->setUniformValue("textureU", 1);
     m_textureV->bind(2);
     m_shaderProgram0->setUniformValue("textureV", 2);
-    m_shaderProgram0->setUniformValue("is10bit", isTenbit);
+    m_shaderProgram0->setUniformValue("oneByte", oneByte);
+    m_shaderProgram0->setUniformValue("adjust", adjust);
     QMatrix4x4 transform = transformMatrix(width(), height(), imageWidth, imageHeight);
     m_shaderProgram0->setUniformValue("transform", transform);
     glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);

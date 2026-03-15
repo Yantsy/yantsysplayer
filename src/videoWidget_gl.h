@@ -20,7 +20,7 @@ public:
     ~MyGLWidget();
     // void render(uint8_t *Y, uint8_t *U, uint8_t *V, char *ppxFmt) noexcept;
     void renderWithOpenGL(uint8_t* Y, uint8_t* U, uint8_t* V, int& w, int& h, int& strideY,
-        int& strideU, int& strideV, const char& pxFmt, int depth) noexcept;
+        int& strideU, int& strideV, const char& pxFmt, int& newdepth) noexcept;
     void renderWithOpenGL8(uint8_t* Y, uint8_t* U, uint8_t* V, int& w, int& h, int& strideY,
         int& strideU, int& strideV, const char& pxFmt) noexcept;
     void renderWithOpenGL10(uint8_t* Y, uint8_t* U, uint8_t* V, int& w, int& h, int& strideY,
@@ -38,6 +38,7 @@ protected:
     // void resizeEvent(QResizeEvent *event) override;
 signals:
     void progressChanged(double progress);
+    void close();
 
 private:
     QOpenGLVertexArrayObject *m_vao0 = nullptr, *m_vao1 = nullptr;
@@ -59,9 +60,15 @@ private:
     float windowWidth  = 0.0f;
     float windowHeight = 0.0f;
     bool isTenbit      = false;
+    bool oneByte       = true;
+    int adjust { 0 };
+    float adjustC(int orig, int inbuffer);
     int depth { 0 };
     double timeBase { 0.0 };
-
+    bool needupdate();
+    void updateTexture(
+        QOpenGLTexture*& texture, float w, float h, QOpenGLTexture::TextureFormat format);
+    void sendTexture(QOpenGLTexture* texture);
     char pxFmt;
     QMatrix4x4 imageScaleMatrix(float imgWidth, float imgHeight);
     QMatrix4x4 windowScaleMatrix(float winWidth, float winHeight);

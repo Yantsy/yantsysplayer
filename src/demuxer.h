@@ -179,10 +179,7 @@ private:
             av_frame_ref(myFrm, decodedFrm);
             av_frame_unref(decodedFrm);
 
-            auto frame          = std::make_shared<VideoFrame>(myFrm);
-            is->videoBufferHead = { frame->frame.get()->data[0], frame->frame.get()->data[1],
-                frame->frame.get()->data[2] };
-            is->videoBufferSize = frame->linesize;
+            auto frame = std::make_shared<VideoFrame>(myFrm);
 
             if (count == 0) {
                 start = std::chrono::steady_clock::now();
@@ -243,7 +240,6 @@ private:
             } else {
                 chunk.pcm.assign(myFrm->data[0], myFrm->data[0] + outBytes);
             }
-            is->audioBuffer       = outBuffer;
             chunk.audioBufferSize = outBytes;
             is->chunks.push(std::move(chunk));
             av_frame_unref(myFrm);
@@ -296,7 +292,11 @@ public slots:
     }
     void pause() { is->pause(); };
     void play() { is->play(); };
-    void quit() { is->quit(); }
+    void quit() {
+        is->flusha();
+        is->flushv();
+        is->quit();
+    }
 
 public:
     DemuxerPlusDecoder() { };

@@ -207,6 +207,7 @@ struct PlayerState {
         pausecv.notify_all();
     };
     auto quit() { toquit = true; }
+    auto reset() { };
     auto update() {
         if (toquit) {
             return -1;
