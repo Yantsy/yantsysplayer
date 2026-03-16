@@ -44,7 +44,9 @@ struct CtxFree<SwrContext> {
 };
 template <>
 struct CtxFree<AVFrame> {
-    auto operator()(AVFrame* ctx) const noexcept { av_frame_free(&ctx); }
+    auto operator()(AVFrame* ctx) const noexcept {
+        if (ctx != nullptr) av_frame_free(&ctx);
+    }
 };
 template <>
 struct CtxFree<AVPacket> {
@@ -139,6 +141,7 @@ struct VideoFrame {
         av_frame_ref(f, pframe);
         frame.reset(f);
     }
+    ~VideoFrame() { };
 };
 Q_DECLARE_METATYPE(std::shared_ptr<VideoFrame>);
 struct ChunkQueue {

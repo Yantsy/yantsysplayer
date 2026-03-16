@@ -22,30 +22,30 @@ bool yslider::isdragging() { return dragging; }
 // bool yslider::under_control(bool control) { return dragging = control; }
 
 void yslider::paintEvent(QPaintEvent* event) {
-    QPainter groove(this);
+    QPainter p(this);
     double ratio = (double)value() / (double)maximum();
 
-    groove.setRenderHint(QPainter::Antialiasing);
-    groove.setPen(Qt::NoPen);
-    groove.setBrush(groovecolor.rgb());
-    groove.drawRoundedRect(this->rect(), xr, yr);
+    p.setRenderHint(QPainter::Antialiasing);
+    p.setPen(Qt::NoPen);
+    p.setBrush(groovecolor.rgb());
+    // groove
+    p.drawRoundedRect(this->rect(), xr, yr);
 
-    groove.setRenderHint(QPainter::Antialiasing);
-    groove.setPen(Qt::NoPen);
-    groove.setBrush(tracecolor.rgb());
-
-    groove.drawRoundedRect(
+    p.setRenderHint(QPainter::Antialiasing);
+    p.setPen(Qt::NoPen);
+    p.setBrush(tracecolor.rgb());
+    // trace
+    p.drawRoundedRect(
         this->rect().x(), this->rect().y() - 2, width() * ratio, height() - 4, xr, yr);
 
-    groove.setRenderHint(QPainter::Antialiasing);
-    groove.setPen(Qt::NoPen);
-    groove.setBrush(handelcolor.rgb());
-
+    p.setRenderHint(QPainter::Antialiasing);
+    p.setPen(Qt::NoPen);
+    p.setBrush(handelcolor.rgb());
+    // handle
     if (this->rect().x() + width() * ratio < this->rect().width() - 6) {
-        groove.drawRoundedRect(
-            this->rect().x() + width() * ratio, this->rect().y() + 2, 6, 12, xr, yr);
+        p.drawRoundedRect(this->rect().x() + width() * ratio, this->rect().y() + 2, 6, 12, 4, 4);
     } else {
-        groove.drawRoundedRect(this->rect().width() - 6, this->rect().y() + 2, 6, 12, xr, yr);
+        p.drawRoundedRect(this->rect().width() - 6, this->rect().y() + 2, 6, 12, 4, 4);
     }
 
     // update();

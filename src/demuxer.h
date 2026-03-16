@@ -165,7 +165,7 @@ private:
         avcodec_send_packet(decCtx, packet);
         av_packet_unref(packet);
         auto decodedFrm = is->decVideoFrm.get();
-        auto myFrm      = is->myVideoFrm.get();
+        // auto myFrm      = is->myVideoFrm.get();
         while (is->videoUpdate() == 0) {
 
             int ret = avcodec_receive_frame(decCtx, decodedFrm);
@@ -176,25 +176,25 @@ private:
                 is->flushv();
                 break;
             }
-            av_frame_ref(myFrm, decodedFrm);
+            auto pts = decodedFrm->pts;
+            // av_frame_ref(myFrm, decodedFrm);
+
+            auto frame = std::make_shared<VideoFrame>(decodedFrm);
             av_frame_unref(decodedFrm);
-
-            auto frame = std::make_shared<VideoFrame>(myFrm);
-
             if (count == 0) {
                 start = std::chrono::steady_clock::now();
                 count += 1;
             }
             update        = std::chrono::steady_clock::now();
             auto duration = std::chrono::duration<double>(update - start).count();
-            auto vTime { myFrm->pts * (is->mediaInfo.videoInfo.vtimeBase) };
+            auto vTime { pts * (is->mediaInfo.videoInfo.vtimeBase) };
             auto diff = vTime - duration;
             if (diff > 0.01) {
                 std::this_thread::sleep_for(std::chrono::duration<double>(diff));
             } else if (diff < -0.05) {
                 continue;
             }
-            av_frame_unref(myFrm);
+            // av_frame_unref(myFrm);
             if (!is->topause) emit frameReady(frame);
         }
     };
