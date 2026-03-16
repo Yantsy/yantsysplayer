@@ -2,12 +2,15 @@
 
 #include "demuxer.h"
 #include "public.h"
+#include "robot.h"
 #include "videoWidget_gl.h"
 #include "yslider.h"
 #include <QApplication>
+#include <QLineEdit>
 #include <QObject>
 #include <QPointer>
 #include <QPushButton>
+#include <QTextEdit>
 #include <QThread>
 #include <QVBoxLayout>
 #include <QWidget>
@@ -22,11 +25,17 @@ int main(int argc, char* argv[]) {
     qRegisterMetaType<std::shared_ptr<VideoFrame>>("std::shared_ptr<VideoFrame>");
     qRegisterMetaType<std::shared_ptr<AudioChunk>>("std::shared_ptr<AudioChunk>");
     qRegisterMetaType<PlayerStatePtr>("PlayerStatePtr");
+
     // ui
     QWidget window;
     window.setWindowTitle("Yantsy's Player");
-    auto* layout      = new QVBoxLayout(&window);
+    auto* layout    = new QVBoxLayout(&window);
+    auto* sublayout = new QHBoxLayout();
+    auto* texeditor = new QLineEdit("请输入文本：......");
+    auto* user      = new QTextEdit("......");
+    user->setFixedHeight(30);
     auto* pickFileBtn = new QPushButton("获取文件");
+    auto* send        = new QPushButton("send");
     auto* play        = new QPushButton("Play");
     play->setFixedWidth(30);
 
@@ -37,11 +46,15 @@ int main(int argc, char* argv[]) {
     slider.setgroovecolor(QColor(255, 255, 255));
     slider.settracecolor(QColor(51, 232, 219));
     slider.sethandelcolor(QColor(235, 88, 88));
-    layout->addWidget(pickFileBtn);
     layout->addWidget(&videoWidget);
     layout->addWidget(&slider, 1);
     layout->addWidget(play, 1);
-    window.resize(960, 640);
+    sublayout->addWidget(pickFileBtn);
+    sublayout->addWidget(texeditor);
+    sublayout->addWidget(send);
+    layout->addLayout(sublayout, 1);
+    layout->addWidget(user);
+    window.resize(960, 680);
     window.show();
 
     bool isPlaying                       = false;
@@ -49,6 +62,7 @@ int main(int argc, char* argv[]) {
     QPointer<QThread> thread             = nullptr;
     QPointer<DemuxerPlusDecoder> demuxer = nullptr;
     QPointer<MyAudioWidget> audioWidget  = nullptr;
+    Robot robot;
 
     QObject::connect(pickFileBtn, &QPushButton::clicked, &window, [&]() {
         // clear previous resources
@@ -75,9 +89,11 @@ int main(int argc, char* argv[]) {
         thread      = new QThread(&window);
         audioWidget = new MyAudioWidget();
         demuxer     = new DemuxerPlusDecoder();
+
         demuxer->open(filePath.toStdString());
         // add demuxer to main thread before the video is played
         demuxer->moveToThread(thread);
+        robot.moveToThread(thread);
         // link signals with slots to start the two threads
         // while the video is playing
         QObject::connect(thread, &QThread::started, demuxer, &DemuxerPlusDecoder::processStart);
@@ -92,6 +108,17 @@ int main(int argc, char* argv[]) {
         QObject::connect(
             demuxer, &DemuxerPlusDecoder::frameReady, &videoWidget, &MyGLWidget::frameIn);
         QObject::connect(&videoWidget, &MyGLWidget::progressChanged, &slider, &yslider::setValue);
+        QObject::connect(send, &QPushButton::clicked, [&]() {
+            auto a = texeditor->text();
+            auto b = a.toStdString();
+            robot.recv(b);
+            texeditor->clear();
+        });
+        QObject::connect(&robot, &Robot::get, [&]() {
+            texeditor->clear();
+            user->clear();
+            user->append(robot.words);
+        });
         /*
         QObject::connect(
             demuxer, &DemuxerPlusDecoder::chunkReady, audioWidget, &MyAudioWidget::chunkIn);*/

@@ -43,6 +43,9 @@ qt_add_executable(${PROJECT_NAME}
 ../src/demuxer.h
 ../src/yslider.h
 ../src/yslider.cc
+../thirdparty/json.hpp
+../thirdparty/httplib.h
+../src/robot.h
 )
 qt_add_resources({${PROJECT_NAME} ../resources.qrc})
 
