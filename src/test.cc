@@ -148,21 +148,17 @@ int main(int argc, char* argv[]) {
                 audioWidget->play();
             }
         });
-        /*
-        QObject::connect(&videoWidget, &MyGLWidget::close, [&]() {
-            if (demuxer && thread && thread->isRunning()) {
-                audioWidget->quit();
-                delete audioWidget;
-                // videoWidget.quit();
-                demuxer->quit();
-                thread->quit();
-                thread->wait(3000); // 最多等待3秒
-            }
-        });*/
         thread->start();
     });
     // when the application is finished,or say when you close the main window,quit the main thread
     QObject::connect(&a, &QApplication::aboutToQuit, &window, [&]() {
+        if (hasVideo) {
+            audioWidget->quit();
+            demuxer->quit();
+            videoWidget.quit();
+            demuxer->deleteLater();
+        };
+
         if (thread && thread->isRunning()) {
             thread->quit();
             thread->wait();
