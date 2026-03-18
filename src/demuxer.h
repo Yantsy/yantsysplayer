@@ -17,7 +17,7 @@ signals:
 private:
     std::string file;
     Clock audioClk, videoClk, exClk;
-    std::chrono::steady_clock::time_point start;
+    std::chrono::steady_clock::time_point start, laststart;
     std::chrono::steady_clock::time_point update;
     PlayerStatePtr is = std::make_shared<PlayerState>();
     int count { 0 };
@@ -51,15 +51,15 @@ private:
         std::cout << " " << std::endl;
     };
 
+    auto clear(PlayerStatePtr is) {
+        std::queue<AudioChunk> empty;
+        std::swap(is->chunks, empty);
+        is->readPos = 0;
+    };
+
     auto seekFrame(PlayerStatePtr is) {
-        /*
-        int64_t seekTarget = av_rescale_q(is->estAudioPTS,
-            is->formatCtx->streams[is->mediaInfo.audioInfo.asIndex]->time_base, AV_TIME_BASE_Q);
-*/
-        av_seek_frame(is->formatCtx.get(), is->mediaInfo.videoInfo.vsIndex, is->estVideoPTS,
+        av_seek_frame(is->formatCtx.get(), is->mediaInfo.videoInfo.vsIndex, is->videoPTS,
             AVSEEK_FLAG_BACKWARD);
-        count = 0;
-        start = std::chrono::steady_clock::now();
         avcodec_flush_buffers(is->audioDecCtx.get());
         avcodec_flush_buffers(is->videoDecCtx.get());
     }
@@ -83,11 +83,11 @@ private:
             if (decoder == nullptr) {
                 std::cerr << "Can't find supported decoder\n" << std::flush;
             }
-            auto containerDuration = (float)pFormatCtx->duration;
+            auto containerDuration = (double)pFormatCtx->duration;
 
             auto base = pFormatCtx->streams[i]->time_base.den;
 
-            auto duration = (float)pFormatCtx->streams[i]->duration / base;
+            auto duration = (double)pFormatCtx->streams[i]->duration / base;
 
             if (duration <= 0.0f) {
                 duration = containerDuration / 1000 / base;
@@ -126,7 +126,7 @@ private:
                 mediaInfo.videoInfo.resolution[0] = cdcPar->width;
                 mediaInfo.videoInfo.resolution[1] = cdcPar->height;
                 mediaInfo.videoInfo.vduration     = duration;
-                emit durationChanged(duration);
+                emit durationChanged(duration * 1000000);
                 mediaInfo.videoInfo.pxFmt = is->videoDecCtx->pix_fmt;
                 mediaInfo.videoInfo.pxFmtName =
                     const_cast<char*>(av_get_pix_fmt_name(mediaInfo.videoInfo.pxFmt));
@@ -135,8 +135,9 @@ private:
                 std::cout << "Video Stream Info Get\n";
             }
         }
-        mediaInfo.filePath = const_cast<char*>(file);
-        is->mediaInfo      = std::move(mediaInfo);
+        mediaInfo.filePath      = const_cast<char*>(file);
+        is->mediaInfo           = std::move(mediaInfo);
+        is->videoClock.timebase = is->mediaInfo.videoInfo.vtimeBase;
         is->formatCtx.reset(pFormatCtx);
         auto swrCtx = myResampler.alcSwrCtx(mediaInfo.audioInfo.channelLayout,
             mediaInfo.audioInfo.splRate, mediaInfo.audioInfo.sampleFmt,
@@ -176,26 +177,35 @@ private:
                 is->flushv();
                 break;
             }
-            auto pts = decodedFrm->pts;
+            is->videoClock.update = decodedFrm->pts;
+            if (is->videoClock.skip) {
+                is->videoClock.progressed();
+                is->videoClock.skip = false;
+            }
+
             // av_frame_ref(myFrm, decodedFrm);
 
             auto frame = std::make_shared<VideoFrame>(decodedFrm);
             av_frame_unref(decodedFrm);
-            if (count == 0) {
-                start = std::chrono::steady_clock::now();
-                count += 1;
+            if (is->videoClock.init < 0) {
+                is->videoClock.start = rt::now();
+                is->videoClock.init += 1;
             }
-            update        = std::chrono::steady_clock::now();
-            auto duration = std::chrono::duration<double>(update - start).count();
-            auto vTime { pts * (is->mediaInfo.videoInfo.vtimeBase) };
-            auto diff = vTime - duration;
-            if (diff > 0.01) {
-                std::this_thread::sleep_for(std::chrono::duration<double>(diff));
-            } else if (diff < -0.05) {
+            is->videoClock.latest = rt::now();
+            is->videoClock.pushwclk();
+            is->videoClock.pushrclk();
+            is->videoClock.pushdiff();
+            auto diff = is->videoClock.diff;
+            if (diff > 10000) {
+                std::this_thread::sleep_for(std::chrono::duration<double, std::micro>(diff));
+            } else if (diff < -50000) {
                 continue;
             }
             // av_frame_unref(myFrm);
             if (!is->topause) emit frameReady(frame);
+            if (is->videoClock.prog != 0) {
+                is->videoClock.prog = 0;
+            };
         }
     };
     auto decodeAudio(PlayerStatePtr is) {
@@ -209,6 +219,10 @@ private:
         auto myFrm      = is->myAudioFrm.get();
         while (is->audioUpdate() == 0) {
             // if (is->progressChanged || is->topause) return;
+            if (is->topause || is->apc) {
+                is->apc = false;
+                return;
+            };
             int ret = avcodec_receive_frame(decCtx, decodedFrm);
             if (ret == AVERROR(EAGAIN)) {
                 break;
@@ -256,16 +270,17 @@ private:
         auto packets { is->packet.get() };
         while (is->update() == 0) {
             if (is->progressChanged) {
+                is->videoClock.base = is->videoClock.update;
+                is->videoClock.skip = true;
+                is->apc             = true;
                 is->progressChanged = false;
                 seekFrame(is);
             }
-
             int ret = av_read_frame(is->formatCtx.get(), packets);
             if (ret == AVERROR_EOF) {
                 is->quit();
                 break;
             };
-
             if (packets->stream_index == is->mediaInfo.audioInfo.asIndex) {
                 decodeAudio(is);
             } else if (packets->stream_index == is->mediaInfo.videoInfo.vsIndex) {
@@ -282,13 +297,12 @@ public slots:
         emit finished();
     }
     void progressChange(double newProgress) {
+        clear(is);
         is->progressChanged = true;
-        is->estAudioPTS     = (int64_t)(newProgress / (is->mediaInfo.audioInfo.atimeBase));
-        is->audioPTS =
-            av_rescale_q(is->estAudioPTS, is->mediaInfo.audioInfo.timeBase, AV_TIME_BASE_Q);
-        is->estVideoPTS = (int64_t)(newProgress / (is->mediaInfo.videoInfo.vtimeBase));
-        is->videoPTS =
-            av_rescale_q(is->estVideoPTS, is->mediaInfo.videoInfo.timeBase, AV_TIME_BASE_Q);
+        auto atb            = is->mediaInfo.audioInfo.atimeBase * 1000000;
+        auto vtb            = is->mediaInfo.videoInfo.vtimeBase * 1000000;
+        is->audioPTS        = newProgress / atb;
+        is->videoPTS        = newProgress / vtb;
     }
     void pause() { is->pause(); };
     void play() { is->play(); };

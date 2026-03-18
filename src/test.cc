@@ -2,7 +2,6 @@
 
 #include "demuxer.h"
 #include "public.h"
-#include "robot.h"
 #include "videoWidget_gl.h"
 #include "yslider.h"
 #include <QApplication>
@@ -32,8 +31,8 @@ int main(int argc, char* argv[]) {
     auto* layout    = new QVBoxLayout(&window);
     auto* sublayout = new QHBoxLayout();
     auto* texeditor = new QLineEdit("请输入文本：......");
-    auto* user      = new QTextEdit("......");
-    user->setFixedHeight(30);
+    // auto* user      = new QTextEdit("......");
+    // user->setFixedHeight(30);
     auto* pickFileBtn = new QPushButton("获取文件");
     auto* send        = new QPushButton("send");
     auto* play        = new QPushButton("Play");
@@ -48,12 +47,12 @@ int main(int argc, char* argv[]) {
     slider.sethandelcolor(QColor(235, 88, 88));
     layout->addWidget(&videoWidget);
     layout->addWidget(&slider, 1);
-    layout->addWidget(play, 1);
     sublayout->addWidget(pickFileBtn);
+    sublayout->addWidget(play, 1);
     sublayout->addWidget(texeditor);
     sublayout->addWidget(send);
     layout->addLayout(sublayout, 1);
-    layout->addWidget(user);
+    // layout->addWidget(user);
     window.resize(960, 680);
     window.show();
 
@@ -62,7 +61,7 @@ int main(int argc, char* argv[]) {
     QPointer<QThread> thread             = nullptr;
     QPointer<DemuxerPlusDecoder> demuxer = nullptr;
     QPointer<MyAudioWidget> audioWidget  = nullptr;
-    Robot robot;
+    // Robot robot;
 
     QObject::connect(pickFileBtn, &QPushButton::clicked, &window, [&]() {
         // clear previous resources
@@ -93,12 +92,12 @@ int main(int argc, char* argv[]) {
         demuxer->open(filePath.toStdString());
         // add demuxer to main thread before the video is played
         demuxer->moveToThread(thread);
-        robot.moveToThread(thread);
-        // link signals with slots to start the two threads
-        // while the video is playing
+
+        //  link signals with slots to start the two threads
+        //  while the video is playing
         QObject::connect(thread, &QThread::started, demuxer, &DemuxerPlusDecoder::processStart);
-        QObject::connect(
-            demuxer, &DemuxerPlusDecoder::durationChanged, &slider, &yslider::setMaximum);
+        QObject::connect(demuxer, &DemuxerPlusDecoder::durationChanged,
+            [&](int64_t duration) { slider.setMaximum(duration); });
         QObject::connect(
             &slider, &yslider::dragFinished, [&]() { demuxer->progressChange(slider.tvalue); });
         QObject::connect(
@@ -108,28 +107,7 @@ int main(int argc, char* argv[]) {
         QObject::connect(
             demuxer, &DemuxerPlusDecoder::frameReady, &videoWidget, &MyGLWidget::frameIn);
         QObject::connect(&videoWidget, &MyGLWidget::progressChanged, &slider, &yslider::setValue);
-        QObject::connect(send, &QPushButton::clicked, [&]() {
-            auto a = texeditor->text();
-            auto b = a.toStdString();
-            robot.recv(b);
-            texeditor->clear();
-        });
-        QObject::connect(&robot, &Robot::get, [&]() {
-            texeditor->clear();
-            user->clear();
-            user->append(robot.words);
-        });
-        /*
-        QObject::connect(
-            demuxer, &DemuxerPlusDecoder::chunkReady, audioWidget, &MyAudioWidget::chunkIn);*/
-        //  clear resources of the main thread when the sub thread is finished
-        //  after the video is played
-        QObject::connect(demuxer, &DemuxerPlusDecoder::finished, thread, &QThread::quit);
-        QObject::connect(demuxer, &DemuxerPlusDecoder::finished, demuxer, &QObject::deleteLater);
-        QObject::connect(
-            demuxer, &DemuxerPlusDecoder::finished, audioWidget, &QObject::deleteLater);
-        // reset the button when the thread is finished(or say when the presentation of a video is
-        // finished),then you can choose a new video to restart the whole cycle
+
         QObject::connect(thread, &QThread::finished, &window, [&]() {
             isPlaying = false;
             hasVideo  = false;
@@ -143,6 +121,7 @@ int main(int argc, char* argv[]) {
                 demuxer->pause();
                 audioWidget->pause();
             } else {
+                if (!hasVideo) return;
                 isPlaying = true;
                 demuxer->play();
                 audioWidget->play();
@@ -156,11 +135,11 @@ int main(int argc, char* argv[]) {
             audioWidget->quit();
             demuxer->quit();
             videoWidget.quit();
-            demuxer->deleteLater();
+            if (demuxer != nullptr) demuxer->deleteLater();
         };
 
         if (thread && thread->isRunning()) {
-            thread->quit();
+            if (thread != nullptr) thread->quit();
             thread->wait();
         }
     });

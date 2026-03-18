@@ -112,7 +112,7 @@ void MyGLWidget::frameIn(std::shared_ptr<VideoFrame> videoFrame) {
     // have the slider chase the video progress instead of the audio's.
     latest     = (videoFrame->pts) * timeBase;
     auto frame = videoFrame->frame.get();
-    emit progressChanged(latest);
+    emit progressChanged(latest * 1000000);
     renderWithOpenGL(frame->data[0], frame->data[1], frame->data[2], videoFrame->width,
         videoFrame->height, videoFrame->linesize[0], videoFrame->linesize[1],
         videoFrame->linesize[2], pxFmt, depth);

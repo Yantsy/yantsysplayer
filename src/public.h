@@ -1,7 +1,5 @@
 #pragma once
 
-#include "../thirdparty/httplib.h"
-#include "../thirdparty/json.hpp"
 #include <condition_variable>
 #include <cstdint>
 #include <memory>
@@ -59,6 +57,7 @@ using DecCtxPtr = std::unique_ptr<AVCodecContext, CtxFree<AVCodecContext>>;
 using SwrCtxPtr = std::unique_ptr<SwrContext, CtxFree<SwrContext>>;
 using FrmPtr    = std::unique_ptr<AVFrame, CtxFree<AVFrame>>;
 using PktPtr    = std::unique_ptr<AVPacket, CtxFree<AVPacket>>;
+using rt        = std::chrono::steady_clock;
 
 struct AudioInfo {
     int asIndex;
@@ -153,16 +152,22 @@ struct FrameQueue {
 };
 
 struct Clock {
-    std::atomic<double> time { 0.0 };
-    std::atomic<bool> updated { false };
-    void update(double pT) {
-        time.store(pT, std::memory_order_relaxed);
-        updated.store(true, std::memory_order_release);
+    int init = -1;
+    bool skip { false };
+    int64_t base { 0 };
+    rt::time_point start, latest;
+    int64_t update { 0 };
+    double timebase { 0.0 };
+    double diff { 0.0 }, prog { 0.0 }, wclk { 0.0 }, rclk { 0.0 };
+    auto pushwclk() { wclk = update * timebase * 1000000; };
+    auto progressed() { prog = (update - base) * timebase * 1000000; }
+    auto pushrclk() {
+        rclk = std::chrono::duration<double, std::micro>(latest - start).count();
+        if (prog != 0) {
+            rclk += prog;
+        }
     };
-    std::optional<double> get() const {
-        if (!updated.load(std::memory_order_acquire)) return std::nullopt;
-        return time.load(std::memory_order_relaxed);
-    };
+    auto pushdiff() { diff = wclk - rclk; };
 };
 struct PlayerState {
     // vars changed by different files
@@ -195,6 +200,7 @@ struct PlayerState {
     int64_t videoPTS { 0 };
     // double currentProgress { 0.0 };
     bool progressChanged { false };
+    bool apc { false };
     bool isplay { true };
     bool topause { false };
     std::mutex pasueMutex;
@@ -230,3 +236,21 @@ struct PlayerState {
 
 using PlayerStatePtr = std::shared_ptr<PlayerState>;
 Q_DECLARE_METATYPE(PlayerStatePtr);
+
+/*
+       //for ai chat
+       QObject::connect(send, &QPushButton::clicked, [&]() {
+           auto a = texeditor->text();
+           auto b = a.toStdString();
+           robot.recv(b);
+           texeditor->clear();
+       });
+        QObject::connect(&robot, &Robot::get, [&]() {
+           texeditor->clear();
+           user->clear();
+           user->append(robot.words);
+       });
+       //for audio push mode
+       QObject::connect(
+           demuxer, &DemuxerPlusDecoder::chunkReady, audioWidget, &MyAudioWidget::chunkIn);*/
+// robot.moveToThread(thread);
