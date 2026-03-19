@@ -159,14 +159,9 @@ struct Clock {
     int64_t update { 0 };
     double timebase { 0.0 };
     double diff { 0.0 }, prog { 0.0 }, wclk { 0.0 }, rclk { 0.0 };
-    auto pushwclk() { wclk = update * timebase * 1000000; };
+    auto pushwclk() { wclk = (update - base) * timebase * 1000000; };
     auto progressed() { prog = (update - base) * timebase * 1000000; }
-    auto pushrclk() {
-        rclk = std::chrono::duration<double, std::micro>(latest - start).count();
-        if (prog != 0) {
-            rclk += prog;
-        }
-    };
+    auto pushrclk() { rclk = std::chrono::duration<double, std::micro>(latest - start).count(); };
     auto pushdiff() { diff = wclk - rclk; };
 };
 struct PlayerState {
@@ -194,6 +189,7 @@ struct PlayerState {
     ChunkQueue chunkQueue;
     FrameQueue frameQueue;
     int serial { 0 };
+    int64_t frm { 0 };
     int64_t estAudioPTS { 0 };
     int64_t audioPTS { 0 };
     int64_t estVideoPTS { 0 };

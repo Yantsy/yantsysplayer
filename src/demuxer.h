@@ -177,12 +177,13 @@ private:
                 is->flushv();
                 break;
             }
+            ++is->frm;
             is->videoClock.update = decodedFrm->pts;
             if (is->videoClock.skip) {
-                is->videoClock.progressed();
+                is->videoClock.base = is->videoClock.update;
+                is->videoClock.init = -1;
                 is->videoClock.skip = false;
             }
-
             // av_frame_ref(myFrm, decodedFrm);
 
             auto frame = std::make_shared<VideoFrame>(decodedFrm);
@@ -203,9 +204,8 @@ private:
             }
             // av_frame_unref(myFrm);
             if (!is->topause) emit frameReady(frame);
-            if (is->videoClock.prog != 0) {
-                is->videoClock.prog = 0;
-            };
+            std::cout << std::format("frame{},realtime:{},windowtime:{},prog{}\n", is->frm,
+                is->videoClock.rclk, is->videoClock.wclk, is->videoClock.prog);
         }
     };
     auto decodeAudio(PlayerStatePtr is) {
@@ -270,7 +270,7 @@ private:
         auto packets { is->packet.get() };
         while (is->update() == 0) {
             if (is->progressChanged) {
-                is->videoClock.base = is->videoClock.update;
+
                 is->videoClock.skip = true;
                 is->apc             = true;
                 is->progressChanged = false;

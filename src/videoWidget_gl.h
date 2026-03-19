@@ -59,7 +59,6 @@ private:
     float imageHeight  = 0.0f;
     float windowWidth  = 0.0f;
     float windowHeight = 0.0f;
-    bool isTenbit      = false;
     bool oneByte       = true;
     int adjust { 0 };
     float adjustC(int orig, int inbuffer);
