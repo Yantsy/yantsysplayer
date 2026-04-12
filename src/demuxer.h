@@ -204,7 +204,7 @@ private:
             }
             // av_frame_unref(myFrm);
             if (!is->topause) emit frameReady(frame);
-            std::cout << std::format("frame{},realtime:{},windowtime:{},prog{}\n", is->frm,
+            std::cout << std::format("frame{},realtime:{},windowtime:{}\n", is->frm,
                 is->videoClock.rclk, is->videoClock.wclk, is->videoClock.prog);
         }
     };

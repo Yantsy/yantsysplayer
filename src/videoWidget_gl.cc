@@ -116,16 +116,6 @@ void MyGLWidget::frameIn(std::shared_ptr<VideoFrame> videoFrame) {
     renderWithOpenGL(frame->data[0], frame->data[1], frame->data[2], videoFrame->width,
         videoFrame->height, videoFrame->linesize[0], videoFrame->linesize[1],
         videoFrame->linesize[2], pxFmt, depth);
-    /*
-if (depth == 8) {
-    renderWithOpenGL8(frame->data[0], frame->data[1], frame->data[2], videoFrame->width,
-        videoFrame->height, videoFrame->linesize[0], videoFrame->linesize[1],
-        videoFrame->linesize[2], pxFmt);
-} else if (depth == 10) {
-    renderWithOpenGL10(frame->data[0], frame->data[1], frame->data[2], videoFrame->width,
-        videoFrame->height, videoFrame->linesize[0], videoFrame->linesize[1],
-        videoFrame->linesize[2], pxFmt);
-}*/
 };
 
 void MyGLWidget::quit() {
