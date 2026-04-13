@@ -9,7 +9,7 @@ extern "C" {
 class MyAudioWidget : public QObject {
     Q_OBJECT
 signals:
-    void returnTime(double realDuration);
+    void returnTime(rt::time_point now);
 
 private:
     SDL_AudioSpec wantedSpec { }, obtainedSpec { };
@@ -54,6 +54,8 @@ private:
                 is->readPos = 0;
             };
         };
+        // auto now = rt::now();
+        is->videoClock.latest = rt::now();
     };
     //
     auto initialize(PlayerStatePtr is) {
