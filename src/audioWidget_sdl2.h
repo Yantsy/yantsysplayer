@@ -14,7 +14,7 @@ signals:
 private:
     SDL_AudioSpec wantedSpec { }, obtainedSpec { };
     SDL_AudioDeviceID audioDevice;
-    int bytesPerSample { 0 }, bytesPerSecond { 0 };
+    // int bytesPerSample { 0 }, bytesPerSecond { 0 };
     double timebase { 0.0 };
     bool pullmode { true }; // set pull mode the default and set it false for the push mode
     std::chrono::steady_clock::time_point start;
@@ -31,7 +31,7 @@ private:
 
         auto dst       = stream;
         auto remaining = len; // remaining of dst
-
+        int64_t pts;
         while (remaining > 0 && is != nullptr) {
             if (is->chunks.empty()) break;
 
@@ -39,6 +39,7 @@ private:
             int audioBufferSize = is->chunks.front().audioBufferSize;
             // the most you can get from src
             int available = audioBufferSize - is->readPos;
+            pts           = is->chunks.front().pts;
             // the amount you copy from src
             // if readPos(0)+len=remaining<available,then remaining-=tocopy=0,the cycle ends
             // else readPos(0)+len=remaing>available,then remaining -=tocopy>0,you pop current chunk
@@ -54,7 +55,9 @@ private:
                 is->readPos = 0;
             };
         };
-        // is->videoClock.masterclock = is->chunks.front().pts;
+        is->videoClock.masterclock = pts;
+        is->videoClock.adjust      = static_cast<double>(is->readPos) / is->bytesPerSecond
+            / is->mediaInfo.audioInfo.atimeBase;
     };
     //
     auto initialize(PlayerStatePtr is) {
@@ -71,10 +74,10 @@ private:
             wantedSpec.callback = nullptr; // set nullptr if in push mode
             wantedSpec.userdata = nullptr;
         }
-        bytesPerSample = av_get_bytes_per_sample(audioInfo.sampleFmt);
-        bytesPerSecond = wantedSpec.freq * wantedSpec.channels * bytesPerSample;
-        timebase       = audioInfo.atimeBase;
-        audioDevice    = SDL_OpenAudioDevice(NULL, 0, &wantedSpec, &obtainedSpec, 0);
+        is->bytesPerSample = av_get_bytes_per_sample(audioInfo.sampleFmt);
+        is->bytesPerSecond = wantedSpec.freq * wantedSpec.channels * is->bytesPerSample;
+        timebase           = audioInfo.atimeBase;
+        audioDevice        = SDL_OpenAudioDevice(NULL, 0, &wantedSpec, &obtainedSpec, 0);
         if (audioDevice == 0) {
             SDL_Quit();
         }

@@ -157,6 +157,7 @@ struct Clock {
     int64_t base { 0 };
     rt::time_point start, latest;
     int64_t masterclock { 0 };
+    double adjust { 0.0 };
     int64_t update { 0 };
     double vtimebase { 0.0 }, atimeBase { 0.0 };
     double diff { 0.0 }, prog { 0.0 }, wclk { 0.0 }, rclk { 0.0 };
@@ -164,7 +165,7 @@ struct Clock {
     auto progressed() { prog = (update - base) * vtimebase * 1000000; }
     // auto pushrclk() { rclk = std::chrono::duration<double, std::micro>(latest - start).count();
     // };
-    auto pushrclk() { rclk = masterclock * atimeBase * 1000000; }
+    auto pushrclk() { rclk = static_cast<double>(masterclock + adjust) * atimeBase * 1000000; }
     auto pushdiff() { diff = wclk - rclk; }
     auto time(double t, int i) {
         std::array<int, 3> time;
@@ -190,6 +191,7 @@ struct PlayerState {
     std::array<uint8_t*, 1> audioBuffer { }; // container of the pointer to audio buffer
     int audioBufferSize { 0 };
     int audioBufferRemains { 0 };
+    int bytesPerSample { 0 }, bytesPerSecond { 0 };
     size_t readPos { 0 };
     FrmPtr decVideoFrm { nullptr };
     FrmPtr myVideoFrm { nullptr };

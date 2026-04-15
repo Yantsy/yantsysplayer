@@ -181,9 +181,11 @@ private:
             ++is->frm;
             is->videoClock.update = decodedFrm->pts;
             if (is->videoClock.skip) {
-                is->videoClock.base = is->videoClock.update;
-                is->videoClock.init = -1;
-                is->videoClock.skip = false;
+                is->videoClock.base        = is->videoClock.update;
+                is->videoClock.masterclock = is->audioPTS;
+                is->videoClock.adjust      = 0.0;
+                is->videoClock.init        = -1;
+                is->videoClock.skip        = false;
             }
             // av_frame_ref(myFrm, decodedFrm);
 
@@ -205,8 +207,11 @@ private:
             }
             // av_frame_unref(myFrm);
             if (!is->topause) emit frameReady(frame);
-            std::cout << std::format("frame{},realtime:{},windowtime:{}h{}m{}s\n", is->frm,
-                is->videoClock.rclk, is->videoClock.time(is->videoClock.wclk, 0),
+            std::cout << std::format("frame{},realtime:{}h{}m{}s,windowtime:{}h{}m{}s\n", is->frm,
+                is->videoClock.time(is->videoClock.rclk, 0),
+                is->videoClock.time(is->videoClock.rclk, 1),
+                is->videoClock.time(is->videoClock.rclk, 2),
+                is->videoClock.time(is->videoClock.wclk, 0),
                 is->videoClock.time(is->videoClock.wclk, 1),
                 is->videoClock.time(is->videoClock.wclk, 2));
         }
