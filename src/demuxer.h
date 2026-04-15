@@ -135,9 +135,10 @@ private:
                 std::cout << "Video Stream Info Get\n";
             }
         }
-        mediaInfo.filePath      = const_cast<char*>(file);
-        is->mediaInfo           = std::move(mediaInfo);
-        is->videoClock.timebase = is->mediaInfo.videoInfo.vtimeBase;
+        mediaInfo.filePath       = const_cast<char*>(file);
+        is->mediaInfo            = std::move(mediaInfo);
+        is->videoClock.vtimebase = is->mediaInfo.videoInfo.vtimeBase;
+        is->videoClock.atimeBase = is->mediaInfo.audioInfo.atimeBase;
         is->formatCtx.reset(pFormatCtx);
         auto swrCtx = myResampler.alcSwrCtx(mediaInfo.audioInfo.channelLayout,
             mediaInfo.audioInfo.splRate, mediaInfo.audioInfo.sampleFmt,
@@ -204,8 +205,10 @@ private:
             }
             // av_frame_unref(myFrm);
             if (!is->topause) emit frameReady(frame);
-            std::cout << std::format("frame{},realtime:{},windowtime:{}\n", is->frm,
-                is->videoClock.rclk, is->videoClock.wclk, is->videoClock.prog);
+            std::cout << std::format("frame{},realtime:{},windowtime:{}h{}m{}s\n", is->frm,
+                is->videoClock.rclk, is->videoClock.time(is->videoClock.wclk, 0),
+                is->videoClock.time(is->videoClock.wclk, 1),
+                is->videoClock.time(is->videoClock.wclk, 2));
         }
     };
     auto decodeAudio(PlayerStatePtr is) {

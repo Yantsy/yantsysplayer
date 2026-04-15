@@ -39,7 +39,7 @@ private:
             int audioBufferSize = is->chunks.front().audioBufferSize;
             // the most you can get from src
             int available = audioBufferSize - is->readPos;
-            // the account you copy from src
+            // the amount you copy from src
             // if readPos(0)+len=remaining<available,then remaining-=tocopy=0,the cycle ends
             // else readPos(0)+len=remaing>available,then remaining -=tocopy>0,you pop current chunk
             // and enter the next cycle to get a new chunk,and send data from the new src to the new
@@ -54,8 +54,7 @@ private:
                 is->readPos = 0;
             };
         };
-        // auto now = rt::now();
-        is->videoClock.latest = rt::now();
+        // is->videoClock.masterclock = is->chunks.front().pts;
     };
     //
     auto initialize(PlayerStatePtr is) {

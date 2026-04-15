@@ -156,13 +156,25 @@ struct Clock {
     bool skip { false };
     int64_t base { 0 };
     rt::time_point start, latest;
+    int64_t masterclock { 0 };
     int64_t update { 0 };
-    double timebase { 0.0 };
+    double vtimebase { 0.0 }, atimeBase { 0.0 };
     double diff { 0.0 }, prog { 0.0 }, wclk { 0.0 }, rclk { 0.0 };
-    auto pushwclk() { wclk = (update - base) * timebase * 1000000; };
-    auto progressed() { prog = (update - base) * timebase * 1000000; }
-    auto pushrclk() { rclk = std::chrono::duration<double, std::micro>(latest - start).count(); };
-    auto pushdiff() { diff = wclk - rclk; };
+    auto pushwclk() { wclk = (update - base) * vtimebase * 1000000; }
+    auto progressed() { prog = (update - base) * vtimebase * 1000000; }
+    // auto pushrclk() { rclk = std::chrono::duration<double, std::micro>(latest - start).count();
+    // };
+    auto pushrclk() { rclk = masterclock * atimeBase * 1000000; }
+    auto pushdiff() { diff = wclk - rclk; }
+    auto time(double t, int i) {
+        std::array<int, 3> time;
+        int bs  = t / 1000000;
+        time[0] = bs / 3600;
+        int ms  = bs - time[0] * 3600;
+        time[1] = ms / 60;
+        time[2] = ms - time[1] * 60;
+        return time[i];
+    }
 };
 struct PlayerState {
     // vars changed by different files
