@@ -22,6 +22,7 @@ private:
     // pull mode
     static void sdlCallBack(void* userdata, uint8_t* stream, int len) {
         // fill len bytes 0 in to stream to make sure that it is always fully filled
+
         SDL_memset(stream, 0, len);
         if (userdata == nullptr) return;
         auto is = static_cast<PlayerState*>(userdata);
@@ -32,6 +33,7 @@ private:
         auto dst       = stream;
         auto remaining = len; // remaining of dst
         int64_t pts;
+        is->videoClock.lastcall = rt::now();
         while (remaining > 0 && is != nullptr) {
             if (is->chunks.empty()) break;
 
@@ -55,9 +57,9 @@ private:
                 is->readPos = 0;
             };
         };
-        is->videoClock.masterclock = pts;
-        is->videoClock.adjust      = static_cast<double>(is->readPos) / is->bytesPerSecond
-            / is->mediaInfo.audioInfo.atimeBase;
+
+        is->videoClock.masterclock = pts * is->mediaInfo.audioInfo.atimeBase;
+        is->videoClock.adjust      = static_cast<double>(is->readPos) / is->bytesPerSecond;
     };
     //
     auto initialize(PlayerStatePtr is) {

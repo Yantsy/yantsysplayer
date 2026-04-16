@@ -58,7 +58,7 @@ private:
     };
 
     auto seekFrame(PlayerStatePtr is) {
-        av_seek_frame(is->formatCtx.get(), is->mediaInfo.videoInfo.vsIndex, is->videoPTS,
+        av_seek_frame(is->formatCtx.get(), is->mediaInfo.videoInfo.vsIndex, is->estVideoPTS,
             AVSEEK_FLAG_BACKWARD);
         avcodec_flush_buffers(is->audioDecCtx.get());
         avcodec_flush_buffers(is->videoDecCtx.get());
@@ -181,8 +181,8 @@ private:
             ++is->frm;
             is->videoClock.update = decodedFrm->pts;
             if (is->videoClock.skip) {
-                is->videoClock.base        = is->videoClock.update;
-                is->videoClock.masterclock = is->audioPTS;
+                // is->videoClock.base        = is->videoClock.update;
+                is->videoClock.masterclock = is->estAudioPTS * is->mediaInfo.audioInfo.atimeBase;
                 is->videoClock.adjust      = 0.0;
                 is->videoClock.init        = -1;
                 is->videoClock.skip        = false;
@@ -200,9 +200,9 @@ private:
             is->videoClock.pushrclk();
             is->videoClock.pushdiff();
             auto diff = is->videoClock.diff;
-            if (diff > 10000) {
+            if (diff > 40000) {
                 std::this_thread::sleep_for(std::chrono::duration<double, std::micro>(diff));
-            } else if (diff < -50000) {
+            } else if (diff < -100000) {
                 continue;
             }
             // av_frame_unref(myFrm);
@@ -309,8 +309,8 @@ public slots:
         is->progressChanged = true;
         auto atb            = is->mediaInfo.audioInfo.atimeBase * 1000000;
         auto vtb            = is->mediaInfo.videoInfo.vtimeBase * 1000000;
-        is->audioPTS        = newProgress / atb;
-        is->videoPTS        = newProgress / vtb;
+        is->estAudioPTS     = newProgress / atb;
+        is->estVideoPTS     = newProgress / vtb;
     }
     void pause() { is->pause(); };
     void play() { is->play(); };

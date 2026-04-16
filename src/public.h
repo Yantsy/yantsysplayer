@@ -155,8 +155,8 @@ struct Clock {
     int init = -1;
     bool skip { false };
     int64_t base { 0 };
-    rt::time_point start, latest;
-    int64_t masterclock { 0 };
+    rt::time_point start, latest, lastcall { rt::now() }, latestcall;
+    double masterclock { 0.0 };
     double adjust { 0.0 };
     int64_t update { 0 };
     double vtimebase { 0.0 }, atimeBase { 0.0 };
@@ -165,7 +165,11 @@ struct Clock {
     auto progressed() { prog = (update - base) * vtimebase * 1000000; }
     // auto pushrclk() { rclk = std::chrono::duration<double, std::micro>(latest - start).count();
     // };
-    auto pushrclk() { rclk = static_cast<double>(masterclock + adjust) * atimeBase * 1000000; }
+    auto pushrclk() {
+        double elapsed { 0.0 };
+        elapsed = std::chrono::duration<double, std::micro>(rt::now() - lastcall).count();
+        rclk    = static_cast<double>(masterclock + adjust) * 1000000 + elapsed;
+    }
     auto pushdiff() { diff = wclk - rclk; }
     auto time(double t, int i) {
         std::array<int, 3> time;
