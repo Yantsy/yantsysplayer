@@ -50,6 +50,7 @@ private:
             int tocopy = std::min(available, remaining);
             SDL_memcpy(dst, src.data() + is->readPos, tocopy);
             is->readPos += tocopy;
+            is->videoClock.adjust += tocopy;
             dst += tocopy;
             remaining -= tocopy;
             if (is->readPos >= audioBufferSize) {
@@ -58,8 +59,8 @@ private:
             };
         };
 
-        is->videoClock.masterclock = pts * is->mediaInfo.audioInfo.atimeBase;
-        is->videoClock.adjust      = static_cast<double>(is->readPos) / is->bytesPerSecond;
+        is->videoClock.masterclock = is->videoClock.adjust / is->bytesPerSecond;
+        // is->videoClock.adjust      = static_cast<double>(is->readPos) / is->bytesPerSecond;
     };
     //
     auto initialize(PlayerStatePtr is) {

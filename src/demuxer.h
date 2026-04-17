@@ -181,8 +181,8 @@ private:
             ++is->frm;
             is->videoClock.update = decodedFrm->pts;
             if (is->videoClock.skip) {
-                // is->videoClock.base        = is->videoClock.update;
-                is->videoClock.masterclock = is->estAudioPTS * is->mediaInfo.audioInfo.atimeBase;
+                is->videoClock.base        = is->videoClock.update;
+                is->videoClock.masterclock = 0.0;
                 is->videoClock.adjust      = 0.0;
                 is->videoClock.init        = -1;
                 is->videoClock.skip        = false;
@@ -200,9 +200,9 @@ private:
             is->videoClock.pushrclk();
             is->videoClock.pushdiff();
             auto diff = is->videoClock.diff;
-            if (diff > 40000) {
+            if (diff > 10000) {
                 std::this_thread::sleep_for(std::chrono::duration<double, std::micro>(diff));
-            } else if (diff < -100000) {
+            } else if (diff < -50000) {
                 continue;
             }
             // av_frame_unref(myFrm);

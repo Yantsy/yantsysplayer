@@ -168,7 +168,7 @@ struct Clock {
     auto pushrclk() {
         double elapsed { 0.0 };
         elapsed = std::chrono::duration<double, std::micro>(rt::now() - lastcall).count();
-        rclk    = static_cast<double>(masterclock + adjust) * 1000000 + elapsed;
+        rclk    = static_cast<double>(masterclock) * 1000000 + elapsed;
     }
     auto pushdiff() { diff = wclk - rclk; }
     auto time(double t, int i) {
