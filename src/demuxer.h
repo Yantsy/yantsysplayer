@@ -316,14 +316,14 @@ public slots:
         is->estAudioPTS     = newProgress / atb;
         is->estVideoPTS     = newProgress / vtb;
     }
-    void pause() {
-        is->pause();
-        // is->videoClock.stop0 = rt::now();
-    };
+    void pause() { is->pause(); };
     void play() {
         is->play();
-        // is->videoClock.stop0 = rt::now();
-        // is->videoClock.stop1 = rt::now();
+        // to adjust the later caculated latest -start =rclk=wclk,thus the diff =0 in the first loop
+        // after pause and play;
+        is->videoClock.start = rt::now()
+            - std::chrono::duration_cast<rt::time_point::duration>(
+                std::chrono::duration<double, std::micro>(is->videoClock.wclk));
     };
     void quit() {
         is->flusha();

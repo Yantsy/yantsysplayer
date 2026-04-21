@@ -158,16 +158,7 @@ struct Clock {
         }
         }
     }
-    auto pushdiff() {
-        auto elapsed = std::chrono::duration<double, std::micro>(stop1 - stop0).count();
-        diff         = wclk - rclk;
-        /*
-                if (elapsed > 100000) {
-                    diff += elapsed;
-                    stop0 = rt::now();
-                    stop1 = rt::now();
-                }*/
-    }
+    auto pushdiff() { diff = wclk - rclk; }
     auto time(double t, int i) {
         std::array<int, 3> time;
         int bs  = t / 1000000;
@@ -200,7 +191,7 @@ struct PlayerState {
     std::array<int, 3> videoBufferSize { };
     int videoBufferRemains { 0 };
     Clock videoClock;
-    Masterclock mc { AC };
+    Masterclock mc { OC };
     std::queue<AudioChunk> chunks;
     ChunkQueue chunkQueue;
     FrameQueue frameQueue;
