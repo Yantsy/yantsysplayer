@@ -28,9 +28,9 @@ private:
         // bytes to dst whose size is len bytes,too,and the key is that you have to always fill the
         // stream and control how much you can fill it in one cycle
 
-        auto dst                = stream;
-        auto remaining          = len; // remaining of dst
-        is->videoClock.lastcall = rt::now();
+        auto dst       = stream;
+        auto remaining = len; // remaining of dst
+
         while (remaining > 0 && is != nullptr) {
             if (is->chunks.empty()) break;
 
@@ -54,7 +54,6 @@ private:
                 is->readPos = 0;
             };
         };
-
         is->videoClock.masterclock = is->videoClock.adjust / is->bytesPerSecond;
     };
     //

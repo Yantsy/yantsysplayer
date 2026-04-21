@@ -150,10 +150,7 @@ struct Clock {
             break;
         }
         case (AC): {
-            double elapsed { 0.0 };
-            latestcall = rt::now();
-            elapsed    = std::chrono::duration<double, std::micro>(latestcall - lastcall).count();
-            rclk       = static_cast<double>(masterclock) * 1000000 + elapsed;
+            rclk = static_cast<double>(masterclock) * 1000000;
             break;
         }
         case (VC): {
@@ -164,11 +161,12 @@ struct Clock {
     auto pushdiff() {
         auto elapsed = std::chrono::duration<double, std::micro>(stop1 - stop0).count();
         diff         = wclk - rclk;
-        if (elapsed > 100000) {
-            diff += elapsed;
-            stop0 = rt::now();
-            stop1 = rt::now();
-        }
+        /*
+                if (elapsed > 100000) {
+                    diff += elapsed;
+                    stop0 = rt::now();
+                    stop1 = rt::now();
+                }*/
     }
     auto time(double t, int i) {
         std::array<int, 3> time;
@@ -202,7 +200,7 @@ struct PlayerState {
     std::array<int, 3> videoBufferSize { };
     int videoBufferRemains { 0 };
     Clock videoClock;
-    Masterclock mc { OC };
+    Masterclock mc { AC };
     std::queue<AudioChunk> chunks;
     ChunkQueue chunkQueue;
     FrameQueue frameQueue;

@@ -168,8 +168,11 @@ private:
         av_packet_unref(packet);
         auto decodedFrm = is->decVideoFrm.get();
         // auto myFrm      = is->myVideoFrm.get();
-        while (is->videoUpdate() == 0) {
 
+        while (is->videoUpdate() == 0) {
+            while (is->topause && !is->toquit) {
+                std::this_thread::sleep_for(std::chrono::milliseconds(10));
+            }
             int ret = avcodec_receive_frame(decCtx, decodedFrm);
             if (ret == AVERROR(EAGAIN)) {
                 break;
@@ -284,10 +287,12 @@ private:
                 seekFrame(is);
             }
             int ret = av_read_frame(is->formatCtx.get(), packets);
+
             if (ret == AVERROR_EOF) {
                 is->quit();
                 break;
             };
+            // if (is->topause) return;
             if (packets->stream_index == is->mediaInfo.audioInfo.asIndex) {
                 decodeAudio(is);
             } else if (packets->stream_index == is->mediaInfo.videoInfo.vsIndex) {
@@ -313,11 +318,12 @@ public slots:
     }
     void pause() {
         is->pause();
-        is->videoClock.stop0 = rt::now();
+        // is->videoClock.stop0 = rt::now();
     };
     void play() {
         is->play();
-        is->videoClock.stop1 = rt::now();
+        // is->videoClock.stop0 = rt::now();
+        // is->videoClock.stop1 = rt::now();
     };
     void quit() {
         is->flusha();
