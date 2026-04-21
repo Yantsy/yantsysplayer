@@ -17,8 +17,6 @@ private:
     // int bytesPerSample { 0 }, bytesPerSecond { 0 };
     double timebase { 0.0 };
     bool pullmode { true }; // set pull mode the default and set it false for the push mode
-    std::chrono::steady_clock::time_point start;
-    std::chrono::steady_clock::time_point update;
     // pull mode
     static void sdlCallBack(void* userdata, uint8_t* stream, int len) {
         // fill len bytes 0 in to stream to make sure that it is always fully filled
@@ -30,9 +28,8 @@ private:
         // bytes to dst whose size is len bytes,too,and the key is that you have to always fill the
         // stream and control how much you can fill it in one cycle
 
-        auto dst       = stream;
-        auto remaining = len; // remaining of dst
-        int64_t pts;
+        auto dst                = stream;
+        auto remaining          = len; // remaining of dst
         is->videoClock.lastcall = rt::now();
         while (remaining > 0 && is != nullptr) {
             if (is->chunks.empty()) break;
@@ -41,7 +38,6 @@ private:
             int audioBufferSize = is->chunks.front().audioBufferSize;
             // the most you can get from src
             int available = audioBufferSize - is->readPos;
-            pts           = is->chunks.front().pts;
             // the amount you copy from src
             // if readPos(0)+len=remaining<available,then remaining-=tocopy=0,the cycle ends
             // else readPos(0)+len=remaing>available,then remaining -=tocopy>0,you pop current chunk
@@ -60,7 +56,6 @@ private:
         };
 
         is->videoClock.masterclock = is->videoClock.adjust / is->bytesPerSecond;
-        // is->videoClock.adjust      = static_cast<double>(is->readPos) / is->bytesPerSecond;
     };
     //
     auto initialize(PlayerStatePtr is) {

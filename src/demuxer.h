@@ -188,7 +188,6 @@ private:
                 is->videoClock.skip        = false;
             }
             // av_frame_ref(myFrm, decodedFrm);
-
             auto frame = std::make_shared<VideoFrame>(decodedFrm);
             av_frame_unref(decodedFrm);
             if (is->videoClock.init < 0) {
@@ -197,7 +196,7 @@ private:
             }
             is->videoClock.latest = rt::now();
             is->videoClock.pushwclk();
-            is->videoClock.pushrclk();
+            is->videoClock.pushrclk(is->mc);
             is->videoClock.pushdiff();
             auto diff = is->videoClock.diff;
             if (diff > 10000) {
@@ -312,8 +311,14 @@ public slots:
         is->estAudioPTS     = newProgress / atb;
         is->estVideoPTS     = newProgress / vtb;
     }
-    void pause() { is->pause(); };
-    void play() { is->play(); };
+    void pause() {
+        is->pause();
+        is->videoClock.stop0 = rt::now();
+    };
+    void play() {
+        is->play();
+        is->videoClock.stop1 = rt::now();
+    };
     void quit() {
         is->flusha();
         is->flushv();

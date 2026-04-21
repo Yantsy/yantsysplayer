@@ -101,30 +101,7 @@ struct AudioChunk {
     int64_t pts;
 };
 Q_DECLARE_METATYPE(std::shared_ptr<AudioChunk>);
-struct VideoFrame0 {
-    int width;
-    int height;
-    int64_t pts;
-    std::array<int, 3> linesize;
-    std::vector<uint8_t> y;
-    std::vector<uint8_t> u;
-    std::vector<uint8_t> v;
-    VideoFrame0(AVFrame* pframe)
-        : width(pframe->width)
-        , height(pframe->height)
-        , pts(pframe->pts) {
-        std::ranges::transform(std::views::iota(0, 3), linesize.begin(),
-            [pframe](int i) { return std::abs(pframe->linesize[i]); });
-        auto yH = ((height & 1) == 1) ? height + 1 : height;
-        auto uH { yH / 2 }, vH { yH / 2 };
-        y.resize(linesize[0] * height);
-        y.assign(pframe->data[0], pframe->data[0] + linesize[0] * height);
-        u.resize(linesize[1] * uH);
-        u.assign(pframe->data[1], pframe->data[1] + linesize[1] * uH);
-        v.resize(linesize[2] * vH);
-        v.assign(pframe->data[2], pframe->data[2] + linesize[2] * vH);
-    }
-};
+
 struct VideoFrame {
     int width;
     int height;
@@ -151,26 +128,48 @@ struct FrameQueue {
     std::queue<VideoFrame> bufferredFrm;
 };
 
+enum Masterclock : int { OC = 1, AC = 2, VC = 3 };
 struct Clock {
     int init = -1;
     bool skip { false };
     int64_t base { 0 };
-    rt::time_point start, latest, lastcall { rt::now() }, latestcall;
+    rt::time_point start, latest, lastcall { rt::now() }, latestcall { rt::now() },
+        stop0 { rt::now() }, stop1 { rt::now() };
     double masterclock { 0.0 };
     double adjust { 0.0 };
     int64_t update { 0 };
     double vtimebase { 0.0 }, atimeBase { 0.0 };
     double diff { 0.0 }, prog { 0.0 }, wclk { 0.0 }, rclk { 0.0 };
     auto pushwclk() { wclk = (update - base) * vtimebase * 1000000; }
-    auto progressed() { prog = (update - base) * vtimebase * 1000000; }
     // auto pushrclk() { rclk = std::chrono::duration<double, std::micro>(latest - start).count();
     // };
-    auto pushrclk() {
-        double elapsed { 0.0 };
-        elapsed = std::chrono::duration<double, std::micro>(rt::now() - lastcall).count();
-        rclk    = static_cast<double>(masterclock) * 1000000 + elapsed;
+    auto pushrclk(Masterclock c) {
+        switch (c) {
+        case (OC): {
+            rclk = std::chrono::duration<double, std::micro>(latest - start).count();
+            break;
+        }
+        case (AC): {
+            double elapsed { 0.0 };
+            latestcall = rt::now();
+            elapsed    = std::chrono::duration<double, std::micro>(latestcall - lastcall).count();
+            rclk       = static_cast<double>(masterclock) * 1000000 + elapsed;
+            break;
+        }
+        case (VC): {
+            break;
+        }
+        }
     }
-    auto pushdiff() { diff = wclk - rclk; }
+    auto pushdiff() {
+        auto elapsed = std::chrono::duration<double, std::micro>(stop1 - stop0).count();
+        diff         = wclk - rclk;
+        if (elapsed > 100000) {
+            diff += elapsed;
+            stop0 = rt::now();
+            stop1 = rt::now();
+        }
+    }
     auto time(double t, int i) {
         std::array<int, 3> time;
         int bs  = t / 1000000;
@@ -202,23 +201,20 @@ struct PlayerState {
     std::array<uint8_t*, 3> videoBufferHead { }; // container of the pointer to video buffer
     std::array<int, 3> videoBufferSize { };
     int videoBufferRemains { 0 };
-    Clock audioClock, videoClock, exClock;
+    Clock videoClock;
+    Masterclock mc { OC };
     std::queue<AudioChunk> chunks;
     ChunkQueue chunkQueue;
     FrameQueue frameQueue;
-    int serial { 0 };
     int64_t frm { 0 };
     int64_t estAudioPTS { 0 };
     int64_t audioPTS { 0 };
     int64_t estVideoPTS { 0 };
     int64_t videoPTS { 0 };
-    // double currentProgress { 0.0 };
     bool progressChanged { false };
     bool apc { false };
     bool isplay { true };
     bool topause { false };
-    std::mutex pasueMutex;
-    std::condition_variable pausecv;
     bool aflush { false };
     bool vflush { false };
     bool toquit { false };
@@ -226,12 +222,8 @@ struct PlayerState {
     auto flushv() { vflush = true; };
 
     auto pause() { topause = true; };
-    auto play() {
-        topause = false;
-        pausecv.notify_all();
-    };
+    auto play() { topause = false; };
     auto quit() { toquit = true; }
-    auto reset() { };
     auto update() {
         if (toquit) {
             return -1;
