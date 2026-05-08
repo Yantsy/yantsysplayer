@@ -60,33 +60,33 @@ using PktPtr    = std::unique_ptr<AVPacket, CtxFree<AVPacket>>;
 using rt        = std::chrono::steady_clock;
 
 struct AudioInfo {
-    int asIndex;
-    char* adecoderName;
-    double atimeBase;
-    AVRational timeBase;
+    int asIndex { -1 };
+    char* adecoderName { nullptr };
+    double atimeBase { 0.0 };
+    AVRational timeBase { 0 };
     int samples { 1024 };
-    int silence;
-    int splRate;
-    int splDepth;
-    float aduration;
+    int silence { 0 };
+    int splRate { 0 };
+    int splDepth { 0 };
+    float aduration { 0.0 };
     AVSampleFormat sampleFmt;
-    char* splFmtName;
-    int channels;
+    char* splFmtName { nullptr };
+    int channels { 0 };
     AVChannelLayout channelLayout;
     char channelLayoutName[64];
 };
 Q_DECLARE_METATYPE(AudioInfo);
 
 struct VideoInfo {
-    int vsIndex;
-    char* vdecoderName;
+    int vsIndex { -1 };
+    char* vdecoderName { nullptr };
     int resolution[2];
-    double vtimeBase;
+    double vtimeBase { 0.0 };
     AVRational timeBase;
-    float vduration;
+    float vduration { 0.0 };
     AVPixelFormat pxFmt;
-    char* pxFmtName;
-    int pxFmtDpth;
+    char* pxFmtName { nullptr };
+    int pxFmtDpth { 0 };
 };
 Q_DECLARE_METATYPE(VideoInfo);
 struct MediaInfo {

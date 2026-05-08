@@ -28,26 +28,32 @@ private:
     MyResampler myResampler;
     // tool functions
     auto outputInfo(MediaInfo& mediaInfo) {
-        std::cout << "File Path: " << mediaInfo.filePath << "\n"
-                  << "Stream [" << mediaInfo.videoInfo.vsIndex << "] Video\n"
-                  << "____resolution: " << mediaInfo.videoInfo.resolution[0] << "x"
-                  << mediaInfo.videoInfo.resolution[1] << "\n"
-                  << "____duration: " << mediaInfo.videoInfo.vduration << "s\n"
-                  << "____decoder: " << mediaInfo.videoInfo.vdecoderName << "\n"
-                  << "____pixel_format: " << mediaInfo.videoInfo.pxFmtName
-                  << "(depth:" << mediaInfo.videoInfo.pxFmtDpth << ")\n"
-                  << "Stream [" << mediaInfo.audioInfo.asIndex << "] Audio\n"
-                  << "____samplerate: " << (float)mediaInfo.audioInfo.splRate / 1000 << "kHz\n"
-                  << "____duration: " << mediaInfo.audioInfo.aduration << "s\n"
-                  << "____decoder: " << mediaInfo.audioInfo.adecoderName << "\n"
-                  << "____channel_layout: "
-                  << (mediaInfo.audioInfo.channelLayoutName[0] != '\0'
-                             ? mediaInfo.audioInfo.channelLayoutName
-                             : std::to_string(mediaInfo.audioInfo.channels).c_str())
-                  << "\n"
-                  << "____sample_format: " << mediaInfo.audioInfo.splFmtName
-                  << "(depth:" << mediaInfo.audioInfo.splDepth * 8 << ")\n"
-                  << std::flush;
+        if (mediaInfo.videoInfo.vsIndex >= 0) {
+            std::cout << "File Path: " << mediaInfo.filePath << "\n"
+                      << "Stream [" << mediaInfo.videoInfo.vsIndex << "] Video\n"
+                      << "____resolution: " << mediaInfo.videoInfo.resolution[0] << "x"
+                      << mediaInfo.videoInfo.resolution[1] << "\n"
+                      << "____duration: " << mediaInfo.videoInfo.vduration << "s\n"
+                      << "____decoder: " << mediaInfo.videoInfo.vdecoderName << "\n"
+                      << "____pixel_format: " << mediaInfo.videoInfo.pxFmtName
+                      << "(depth:" << mediaInfo.videoInfo.pxFmtDpth << ")\n"
+                      << std::flush;
+        }
+        if (mediaInfo.audioInfo.asIndex >= 0) {
+            std::cout << "Stream [" << mediaInfo.audioInfo.asIndex << "] Audio\n"
+                      << "____samplerate: " << (float)mediaInfo.audioInfo.splRate / 1000 << "kHz\n"
+                      << "____duration: " << mediaInfo.audioInfo.aduration << "s\n"
+                      << "____decoder: " << mediaInfo.audioInfo.adecoderName << "\n"
+                      << "____channel_layout: "
+                      << (mediaInfo.audioInfo.channelLayoutName[0] != '\0'
+                                 ? mediaInfo.audioInfo.channelLayoutName
+                                 : std::to_string(mediaInfo.audioInfo.channels).c_str())
+                      << "\n"
+                      << "____sample_format: " << mediaInfo.audioInfo.splFmtName
+                      << "(depth:" << mediaInfo.audioInfo.splDepth * 8 << ")\n"
+                      << std::flush;
+        }
+
         std::cout << " " << std::endl;
     };
 
@@ -92,7 +98,7 @@ private:
             if (duration <= 0.0f) {
                 duration = containerDuration / 1000 / base;
             };
-            if (i == asi) {
+            if (i == asi && asi >= 0) {
                 auto decCtx = avcodec_alloc_context3(decoder);
                 avcodec_parameters_to_context(decCtx, cdcPar);
                 avcodec_open2(decCtx, decoder, nullptr);
@@ -115,7 +121,7 @@ private:
                     sizeof(mediaInfo.audioInfo.channelLayoutName));
                 std::cout << "Audio Stream Info Get\n";
 
-            } else if (i == vsi) {
+            } else if (i == vsi && vsi >= 0) {
                 auto decCtx = avcodec_alloc_context3(decoder);
                 avcodec_parameters_to_context(decCtx, cdcPar);
                 avcodec_open2(decCtx, decoder, nullptr);
@@ -140,11 +146,13 @@ private:
         is->videoClock.vtimebase = is->mediaInfo.videoInfo.vtimeBase;
         is->videoClock.atimeBase = is->mediaInfo.audioInfo.atimeBase;
         is->formatCtx.reset(pFormatCtx);
-        auto swrCtx = myResampler.alcSwrCtx(mediaInfo.audioInfo.channelLayout,
-            mediaInfo.audioInfo.splRate, mediaInfo.audioInfo.sampleFmt,
-            myResampler.toPackedFmt(mediaInfo.audioInfo.sampleFmt));
-        swr_init(swrCtx);
-        is->audioSwrCtx.reset(swrCtx);
+        if (is->mediaInfo.audioInfo.asIndex >= 0) {
+            auto swrCtx = myResampler.alcSwrCtx(mediaInfo.audioInfo.channelLayout,
+                mediaInfo.audioInfo.splRate, mediaInfo.audioInfo.sampleFmt,
+                myResampler.toPackedFmt(mediaInfo.audioInfo.sampleFmt));
+            swr_init(swrCtx);
+            is->audioSwrCtx.reset(swrCtx);
+        }
         auto decVideoFrm = av_frame_alloc();
         is->decVideoFrm.reset(decVideoFrm);
         auto myVideoFrm = av_frame_alloc();
@@ -293,9 +301,11 @@ private:
                 break;
             };
             // if (is->topause) return;
-            if (packets->stream_index == is->mediaInfo.audioInfo.asIndex) {
+            if (packets->stream_index == is->mediaInfo.audioInfo.asIndex
+                && is->mediaInfo.audioInfo.asIndex >= 0) {
                 decodeAudio(is);
-            } else if (packets->stream_index == is->mediaInfo.videoInfo.vsIndex) {
+            } else if (packets->stream_index == is->mediaInfo.videoInfo.vsIndex
+                && is->mediaInfo.videoInfo.vsIndex >= 0) {
                 decodeVideo(is);
             }
         }
